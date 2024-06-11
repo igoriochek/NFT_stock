@@ -1,3 +1,4 @@
+'use client';
 import React, { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
@@ -5,7 +6,6 @@ import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 const Auction = ({ provider, contractAddress }) => {
   const [auctions, setAuctions] = useState([]);
   const [currentAddress, setCurrentAddress] = useState(null);
-  const [bidAmount, setBidAmount] = useState('');
 
   useEffect(() => {
     if (provider) {
@@ -41,7 +41,7 @@ const Auction = ({ provider, contractAddress }) => {
     }
   };
 
-  const placeBid = async (nft) => {
+  const placeBid = async (nft, bidAmount) => {
     if (nft.highestBidder.toLowerCase() === currentAddress.toLowerCase()) {
       alert('You are already the highest bidder.');
       return;
@@ -58,7 +58,6 @@ const Auction = ({ provider, contractAddress }) => {
 
       alert('Bid placed successfully!');
       loadAuctions();  // Refresh the list of auctions
-      setBidAmount('');
     } catch (error) {
       console.error('Error placing bid:', error);
       alert(`Error: ${error.message}`);
@@ -99,34 +98,50 @@ const Auction = ({ provider, contractAddress }) => {
       <div style={{ display: 'flex', flexWrap: 'wrap' }}>
         {auctions.length > 0 ? (
           auctions.map(nft => (
-            <div key={nft.id} className="nft-card">
-              <img src={nft.image} alt={nft.title} style={{ width: '200px' }} />
-              <h2>{nft.title}</h2>
-              <p>{nft.description}</p>
-              <p>Highest Bid: {ethers.utils.formatUnits(nft.highestBid, 'ether')} ETH</p>
-              <CountdownTimer endTime={nft.endTime} />
-              {nft.owner.toLowerCase() !== currentAddress.toLowerCase() ? (
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Bid Amount (ETH)"
-                    value={bidAmount}
-                    onChange={(e) => setBidAmount(e.target.value)}
-                  />
-                  <button onClick={() => placeBid(nft)}>Place Bid</button>
-                </div>
-              ) : (
-                <p>Your NFT</p>
-              )}
-              {nft.highestBidder.toLowerCase() === currentAddress.toLowerCase() && (
-                <button onClick={() => finalizeAuction(nft)}>Finalize Auction</button>
-              )}
-            </div>
+            <AuctionCard
+              key={nft.id}
+              nft={nft}
+              currentAddress={currentAddress}
+              placeBid={placeBid}
+              finalizeAuction={finalizeAuction}
+            />
           ))
         ) : (
           <p>No active auctions.</p>
         )}
       </div>
+    </div>
+  );
+};
+
+const AuctionCard = ({ nft, currentAddress, placeBid, finalizeAuction }) => {
+  const [bidAmount, setBidAmount] = useState('');
+  const timeLeft = calculateRemainingTime(nft.endTime);
+
+  return (
+    <div className="nft-card">
+      <img src={nft.image} alt={nft.title} />
+      <h2>{nft.title}</h2>
+      <p>{nft.description}</p>
+      <p>Highest Bid: {ethers.utils.formatUnits(nft.highestBid, 'ether')} ETH</p>
+      <CountdownTimer endTime={nft.endTime} />
+      {nft.owner.toLowerCase() !== currentAddress.toLowerCase() ? (
+        <div className="bid-container">
+          <input
+            type="text"
+            placeholder="Bid Amount (ETH)"
+            value={bidAmount}
+            onChange={(e) => setBidAmount(e.target.value)}
+            className="bid-input"
+          />
+          <button onClick={() => placeBid(nft, bidAmount)}>Place Bid</button>
+        </div>
+      ) : (
+        <p>Your NFT</p>
+      )}
+      {nft.highestBidder.toLowerCase() === currentAddress.toLowerCase() && timeLeft === 'Auction Ended' && (
+        <button onClick={() => finalizeAuction(nft)}>Finalize Auction</button>
+      )}
     </div>
   );
 };
