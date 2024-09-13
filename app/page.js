@@ -6,6 +6,7 @@ import Profile from './components/Profile';
 import Market from './components/Market';
 import Auction from './components/Auction';
 import NFTGallery from './components/NftGallery';
+import { shortenAddress } from './utils/shortenAddress';
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
@@ -37,14 +38,14 @@ const Home = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Heading */}
-      <h1 className="text-3xl font-bold text-w text-center mb-6">Welcome to the NFT Gallery</h1>
+      <h1 className="text-3xl font-bold text-white text-center mb-6">Welcome to the NFT Gallery</h1>
       
       {/* Check for provider */}
       {provider ? (
         <>
           {/* Profile Section */}
           <div className="mb-8">
-            <Profile currentAddress={currentAddress} balance={balance} />
+            <Profile currentAddress={shortenAddress(currentAddress)} balance={balance} />
           </div>
 
           {/* Upload Button */}
@@ -64,13 +65,11 @@ const Home = () => {
 
           {/* Market Section */}
           <div className="mb-12">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Market</h2>
             <Market provider={provider} contractAddress={contractAddress} />
           </div>
 
           {/* Auction Section */}
           <div className="mb-12">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Live Auctions</h2>
             <Auction provider={provider} contractAddress={contractAddress} />
           </div>
         </>

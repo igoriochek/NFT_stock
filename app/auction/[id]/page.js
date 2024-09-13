@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 import MetamaskAuth from "@/app/components/MetamaskAuth";
 import PlaceBidModal from "@/app/modals/PlaceBidModal";
+import { shortenAddress } from "@/app/utils/shortenAddress";
+import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
@@ -45,7 +47,6 @@ const NFTDetail = () => {
     }
   }, [provider, id]);
 
-  // Fetch NFT details and highest bid from the smart contract
   const loadNFTDetails = async () => {
     try {
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
@@ -72,16 +73,14 @@ const NFTDetail = () => {
     }
   };
 
-  // Fetch bid history for the NFT from the blockchain
   const loadBidHistory = async () => {
     try {
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const filter = contract.filters.BidPlaced(); // Remove the id parameter as it's non-indexed
       const events = await contract.queryFilter(filter);
 
-      // Filter events to get only those related to the specific token ID
       const bidHistory = events
-        .filter((event) => event.args.tokenId.toString() === id) // Manually filter by tokenId
+        .filter((event) => event.args.tokenId.toString() === id)
         .map((event) => ({
           bidder: event.args.bidder,
           amount: ethers.utils.formatUnits(event.args.amount, "ether"),
@@ -94,17 +93,14 @@ const NFTDetail = () => {
     }
   };
 
-  // Listen for new bids in real-time
   const listenForNewBids = () => {
     const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
     contract.on("BidPlaced", (tokenId, bidder, amount) => {
       if (tokenId.toString() === id) {
-        // Automatically reload bid history when a new bid is placed
         loadBidHistory();
       }
     });
 
-    // Clean up the listener on component unmount
     return () => {
       contract.removeAllListeners("BidPlaced");
     };
@@ -118,7 +114,7 @@ const NFTDetail = () => {
             {bids.length > 0 ? (
               bids.map((bid, index) => (
                 <p key={index}>
-                  Bid placed: {bid.amount} ETH by {bid.bidder}
+                  Bid placed: {bid.amount} ETH by {shortenAddress(bid.bidder)}
                 </p>
               ))
             ) : (
@@ -138,11 +134,28 @@ const NFTDetail = () => {
 
             <h2 className="text-xl font-bold mt-8">Share Item</h2>
             <div className="flex space-x-4 mt-4">
-              <a href="https://twitter.com/share" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all">
-                <i className="fab fa-twitter w-6 h-6"></i>
+              {/* Twitter Share */}
+              <a href={`https://twitter.com/intent/tweet?url=${window.location.href}&text=${nft.title}`} 
+                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all">
+                <FaTwitter className="text-blue-500 w-6 h-6" />
               </a>
-              <a href="https://facebook.com/share" className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all">
-                <i className="fab fa-facebook w-6 h-6"></i>
+              
+              {/* Facebook Share */}
+              <a href={`https://www.facebook.com/sharer/sharer.php?u=${window.location.href}`} 
+                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all">
+                <FaFacebook className="text-blue-600 w-6 h-6" />
+              </a>
+
+              {/* Instagram Share (Custom link, as Instagram doesn't support web-based shares) */}
+              <a href="https://www.instagram.com" 
+                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all" target="_blank" rel="noreferrer">
+                <FaInstagram className="text-pink-500 w-6 h-6" />
+              </a>
+
+              {/* LinkedIn Share */}
+              <a href={`https://www.linkedin.com/shareArticle?mini=true&url=${window.location.href}&title=${nft.title}`} 
+                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all">
+                <FaLinkedin className="text-blue-700 w-6 h-6" />
               </a>
             </div>
           </div>
@@ -153,7 +166,7 @@ const NFTDetail = () => {
             {bids.length > 0 ? (
               bids.map((bid, index) => (
                 <p key={index}>
-                  Bid accepted {bid.amount} ETH by {bid.bidder} at block {bid.timestamp}
+                  Bid accepted {bid.amount} ETH by {shortenAddress(bid.bidder)} at block {bid.timestamp}
                 </p>
               ))
             ) : (
@@ -188,7 +201,7 @@ const NFTDetail = () => {
           <div className="flex justify-between mt-6">
             <div className="text-center">
               <p className="text-sm font-bold text-white">Owner</p>
-              <p className="text-xs text-gray-400">{nft.owner}</p>
+              <p className="text-xs text-gray-400">{shortenAddress(nft.owner)}</p>
             </div>
           </div>
 
