@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+'use client';
+import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
+import NFTCard from './NFTCard';  // Import the NFTCard component
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 
 const Market = ({ provider, contractAddress }) => {
@@ -20,7 +22,6 @@ const Market = ({ provider, contractAddress }) => {
 
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const listedTokens = await contract.getListedTokens();
-      console.log('Listed Tokens:', listedTokens);
 
       const items = [];
       for (let i = 0; i < listedTokens.length; i++) {
@@ -35,7 +36,6 @@ const Market = ({ provider, contractAddress }) => {
         const metadata = await response.json();
         items.push({ id: tokenId, price: ethers.utils.formatUnits(price, 'ether'), owner, ...metadata });
       }
-      console.log('Market Items:', items);
       setListedNFTs(items);
     } catch (error) {
       console.error('Error loading listed NFTs:', error);
@@ -66,25 +66,22 @@ const Market = ({ provider, contractAddress }) => {
   };
 
   return (
-    <div>
-      <h1>Market</h1>
-      <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+    <div className="container mx-auto px-8 lg:px-16">
+      <h1 className="text-5xl font-bold text-gray-100 text-center my-8 shadow-md">Market</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-10">
         {listedNFTs.length > 0 ? (
           listedNFTs.map(nft => (
-            <div key={nft.id} className="nft-card">
-              <img src={nft.image} alt={nft.title} style={{ width: '200px' }} />
-              <h2>{nft.title}</h2>
-              <p>{nft.description}</p>
-              <p>Price: {nft.price} ETH</p>
-              {nft.owner.toLowerCase() !== currentAddress.toLowerCase() ? (
-                <button onClick={() => buyNFT(nft)}>Buy</button>
-              ) : (
-                <p>Your NFT</p>
-              )}
+            <div key={nft.id} className="flex justify-center">
+              <NFTCard
+                nft={nft}
+                currentAddress={currentAddress}
+                onBuy={buyNFT}  // Pass the buy function as prop
+                isAuction={false}  // Indicate this is for Market, not Auction
+              />
             </div>
           ))
         ) : (
-          <p>No NFTs for sale.</p>
+          <p className="text-center col-span-full text-gray-400">No NFTs for sale.</p>
         )}
       </div>
     </div>

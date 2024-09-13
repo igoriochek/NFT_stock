@@ -1,11 +1,11 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
+import NFTCard from './NFTCard';  // Import the NFTCard component
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 
 const Auction = ({ provider, contractAddress }) => {
   const [auctions, setAuctions] = useState([]);
-  const [currentAddress, setCurrentAddress] = useState(null);
 
   useEffect(() => {
     if (provider) {
@@ -15,165 +15,58 @@ const Auction = ({ provider, contractAddress }) => {
 
   const loadAuctions = async () => {
     try {
-      const signer = provider.getSigner();
-      const address = await signer.getAddress();
-      setCurrentAddress(address);
-
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const totalSupply = await contract.tokenCount();
       const items = [];
+
       for (let i = 1; i <= totalSupply; i++) {
         const [active, highestBidder, highestBid, endTime] = await contract.getAuctionDetails(i);
         if (active) {
           const tokenURI = await contract.tokenURI(i);
-          const owner = await contract.ownerOf(i);
           const response = await fetch(tokenURI);
+
           if (!response.ok) {
             throw new Error(`Failed to fetch metadata for token ${i}`);
           }
+
           const metadata = await response.json();
-          items.push({ id: i, owner, highestBidder, highestBid, endTime, ...metadata });
+          items.push({ id: i, highestBidder, highestBid, endTime, ...metadata });
         }
       }
+
       setAuctions(items);
     } catch (error) {
       console.error('Error loading auctions:', error);
     }
   };
 
-  const placeBid = async (nft, bidAmount) => {
-    if (nft.highestBidder.toLowerCase() === currentAddress.toLowerCase()) {
-      alert('You are already the highest bidder.');
-      return;
-    }
-
-    try {
-      const signer = provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-
-      const transaction = await contract.placeBid(nft.id, {
-        value: ethers.utils.parseUnits(bidAmount, 'ether')
-      });
-      await transaction.wait();
-
-      alert('Bid placed successfully!');
-      loadAuctions();  // Refresh the list of auctions
-    } catch (error) {
-      console.error('Error placing bid:', error);
-      alert(`Error: ${error.message}`);
-    }
-  };
-
-  const finalizeAuction = async (nft) => {
-    try {
-      const signer = provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-
-      const transaction = await contract.finalizeAuction(nft.id);
-      await transaction.wait();
-
-      alert('Auction finalized successfully!');
-      loadAuctions();  // Refresh the list of auctions
-    } catch (error) {
-      console.error('Error finalizing auction:', error);
-      alert(`Error: ${error.message}`);
-    }
-  };
-
-  const calculateRemainingTime = (endTime) => {
-    const now = Math.floor(Date.now() / 1000);
-    const remainingTime = endTime - now;
-    if (remainingTime <= 0) {
-      return 'Auction Ended';
-    }
-    const hours = Math.floor(remainingTime / 3600);
-    const minutes = Math.floor((remainingTime % 3600) / 60);
-    const seconds = remainingTime % 60;
-    return `${hours}h ${minutes}m ${seconds}s`;
+  const placeBid = async (nft) => {
+    // Functionality to handle placing bids (not fully implemented for this example)
+    alert(`Placing bid on NFT ${nft.id}`);
   };
 
   return (
-    <div>
-      <h1>Auctions</h1>
-      <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+    <div className="container mx-auto px-8 lg:px-16">
+      <h1 className="text-5xl font-bold text-gray-100 text-center my-8 shadow-md">Live Auctions</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-10">
         {auctions.length > 0 ? (
-          auctions.map(nft => (
-            <AuctionCard
-              key={nft.id}
-              nft={nft}
-              currentAddress={currentAddress}
-              placeBid={placeBid}
-              finalizeAuction={finalizeAuction}
-            />
+          auctions.map((nft) => (
+            <div key={nft.id} className="flex justify-center">
+              <NFTCard
+                nft={nft}
+                currentAddress="" // Add your logic to pass current user's address
+                onBid={placeBid}  // Function to handle bidding
+                isAuction={true}  // Indicate this is for Auction
+              />
+            </div>
           ))
         ) : (
-          <p>No active auctions.</p>
+          <p className="text-center col-span-full text-gray-400">No active auctions.</p>
         )}
       </div>
     </div>
   );
 };
 
-const AuctionCard = ({ nft, currentAddress, placeBid, finalizeAuction }) => {
-  const [bidAmount, setBidAmount] = useState('');
-  const timeLeft = calculateRemainingTime(nft.endTime);
-
-  return (
-    <div className="nft-card">
-      <img src={nft.image} alt={nft.title} />
-      <h2>{nft.title}</h2>
-      <p>{nft.description}</p>
-      <p>Highest Bid: {ethers.utils.formatUnits(nft.highestBid, 'ether')} ETH</p>
-      <CountdownTimer endTime={nft.endTime} />
-      {nft.owner.toLowerCase() !== currentAddress.toLowerCase() ? (
-        <div className="bid-container">
-          <input
-            type="text"
-            placeholder="Bid Amount (ETH)"
-            value={bidAmount}
-            onChange={(e) => setBidAmount(e.target.value)}
-            className="bid-input"
-          />
-          <button onClick={() => placeBid(nft, bidAmount)}>Place Bid</button>
-        </div>
-      ) : (
-        <p>Your NFT</p>
-      )}
-      {nft.highestBidder.toLowerCase() === currentAddress.toLowerCase() && timeLeft === 'Auction Ended' && (
-        <button onClick={() => finalizeAuction(nft)}>Finalize Auction</button>
-      )}
-    </div>
-  );
-};
-
-const CountdownTimer = ({ endTime }) => {
-  const [timeLeft, setTimeLeft] = useState(calculateRemainingTime(endTime));
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const remainingTime = calculateRemainingTime(endTime);
-      setTimeLeft(remainingTime);
-      if (remainingTime === 'Auction Ended') {
-        clearInterval(interval);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [endTime]);
-
-  return <p>Auction Ends In: {timeLeft}</p>;
-};
-
-const calculateRemainingTime = (endTime) => {
-  const now = Math.floor(Date.now() / 1000);
-  const remainingTime = endTime - now;
-  if (remainingTime <= 0) {
-    return 'Auction Ended';
-  }
-  const hours = Math.floor(remainingTime / 3600);
-  const minutes = Math.floor((remainingTime % 3600) / 60);
-  const seconds = remainingTime % 60;
-  return `${hours}h ${minutes}m ${seconds}s`;
-};
 
 export default Auction;

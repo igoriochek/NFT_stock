@@ -2,16 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 
-const NFTGallery = ({ provider, contractAddress, ownerAddress, showSellButton }) => {
+const NFTGallery = ({ provider, contractAddress, ownerAddress, showSellButton, onSell, onAuction, refreshNFTs }) => {
   const [nfts, setNfts] = useState([]);
-  const [selectedNFT, setSelectedNFT] = useState(null);
-  const [price, setPrice] = useState('');
-  const [auctionDuration, setAuctionDuration] = useState('');
 
   useEffect(() => {
-    if (provider) {
-      loadNFTs();
-    }
+    loadNFTs();
   }, [provider]);
 
   const loadNFTs = async () => {
@@ -19,115 +14,81 @@ const NFTGallery = ({ provider, contractAddress, ownerAddress, showSellButton })
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const totalSupply = await contract.tokenCount();
       const items = [];
+
       for (let i = 1; i <= totalSupply; i++) {
         const tokenURI = await contract.tokenURI(i);
-        const owner = await contract.ownerOf(i);
-        if (!ownerAddress || owner.toLowerCase() === ownerAddress.toLowerCase()) {
-          const response = await fetch(tokenURI);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch metadata for token ${i}`);
-          }
+        const listed = await contract.listedTokens(i);
+        const [auctionActive] = await contract.getAuctionDetails(i);
+
+        const response = await fetch(tokenURI);
+        if (response.ok) {
           const metadata = await response.json();
-          items.push({ id: i, owner, ...metadata });
+          items.push({
+            id: i,
+            metadata,
+            listed,
+            auctionActive,
+          });
         }
       }
+
       setNfts(items);
     } catch (error) {
       console.error('Error loading NFTs:', error);
     }
   };
 
-  const handleSell = (nft) => {
-    setSelectedNFT(nft);
-  };
-
-  const handleAuction = (nft) => {
-    setSelectedNFT(nft);
-  };
-
-  const listForSale = async () => {
-    if (!selectedNFT || !price) return;
-
-    try {
-      const signer = provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-
-      const transaction = await contract.listForSale(selectedNFT.id, ethers.utils.parseUnits(price, 'ether'));
-      await transaction.wait();
-
-      alert('NFT listed for sale successfully!');
-      setSelectedNFT(null);
-      setPrice('');
-    } catch (error) {
-      console.error('Error listing NFT for sale:', error);
-      alert(`Error: ${error.message}`);
+  // This component will automatically refresh NFTs after listing or auction
+  useEffect(() => {
+    if (refreshNFTs) {
+      refreshNFTs(); // Trigger refresh on any updates
     }
-  };
-
-  const startAuction = async () => {
-    if (!selectedNFT || !auctionDuration) return;
-
-    try {
-      const signer = provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-
-      const transaction = await contract.startAuction(selectedNFT.id, auctionDuration);
-      await transaction.wait();
-
-      alert('Auction started successfully!');
-      setSelectedNFT(null);
-      setAuctionDuration('');
-    } catch (error) {
-      console.error('Error starting auction:', error);
-      alert(`Error: ${error.message}`);
-    }
-  };
+  }, [refreshNFTs]);
 
   return (
-    <div>
-      <h1>{ownerAddress ? "My NFTs" : "All NFTs"}</h1>
-      <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-        {nfts.length > 0 ? (
-          nfts.map(nft => (
-            <div key={nft.id} className="nft-card">
-              <img src={nft.image} alt={nft.title} style={{ width: '200px' }} />
-              <h2>{nft.title}</h2>
-              <p>{nft.description}</p>
-              <p>Owner: {nft.owner}</p>
-              {showSellButton && ownerAddress && (
-                <div>
-                  <button onClick={() => handleSell(nft)}>Sell</button>
-                  <button onClick={() => handleAuction(nft)}>Auction</button>
-                </div>
-              )}
-            </div>
-          ))
-        ) : (
-          <p>No NFTs found.</p>
-        )}
-      </div>
-      {selectedNFT && (
-        <div>
-          <h2>Sell {selectedNFT.title}</h2>
-          <input
-            placeholder="Price (ETH)"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {nfts.map((nft) => (
+        <div
+          key={nft.id}
+          className="bg-gray-100 shadow-md hover:shadow-lg transition-shadow rounded-lg overflow-hidden"
+        >
+          <img
+            src={nft.metadata.image}
+            alt={nft.metadata.title}
+            className="h-56 w-full object-cover"
           />
-          <button onClick={listForSale}>List for Sale</button>
+
+          <div className="p-4 bg-white">
+            <h3 className="text-lg font-semibold text-gray-800">
+              {nft.metadata.title}
+            </h3>
+            <p className="text-gray-600 mt-2">{nft.metadata.description}</p>
+
+            {showSellButton && !nft.listed && !nft.auctionActive ? (
+              <div className="mt-4 flex space-x-4 justify-between">
+                <button
+                  onClick={() => onSell(nft.id)}
+                  className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-all transform hover:scale-105"
+                >
+                  Sell
+                </button>
+                <button
+                  onClick={() => onAuction(nft.id)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition-all transform hover:scale-105"
+                >
+                  Start Auction
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4">
+                <p className="text-sm text-gray-400">
+                  Already listed or in auction
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-      {selectedNFT && (
-        <div>
-          <h2>Auction {selectedNFT.title}</h2>
-          <input
-            placeholder="Duration (seconds)"
-            value={auctionDuration}
-            onChange={(e) => setAuctionDuration(e.target.value)}
-          />
-          <button onClick={startAuction}>Start Auction</button>
-        </div>
-      )}
+      ))}
     </div>
   );
 };

@@ -1,3 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.nft-card {
+  @apply bg-white shadow-md rounded-lg p-4 hover:shadow-lg transition-shadow duration-300;
+}
+
 body {
   font-family: Arial, sans-serif;
   margin: 0;
