@@ -1,45 +1,142 @@
-import React, { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
-import Link from 'next/link';
+import React, { useState, useEffect } from "react";
+import { ethers } from "ethers";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { db } from "../firebase"; // Firebase initialization
+import Link from "next/link";
 
 const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
-  const [timeLeft, setTimeLeft] = useState('');
+  const [timeLeft, setTimeLeft] = useState("");
   const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0); // Initialize with 0
+
+  // Fetch the likes count and user liked status when the page loads
+  useEffect(() => {
+    const fetchLikesAndStatus = async () => {
+      if (!nft?.id) return;
+
+      try {
+        const nftLikesRef = doc(db, "nftLikes", nft.id.toString());
+        const nftLikesDoc = await getDoc(nftLikesRef);
+
+        // If the document exists, set the like count
+        if (nftLikesDoc.exists()) {
+          const data = nftLikesDoc.data();
+          setLikeCount(data.likeCount || 0); // Set like count from Firebase
+        }
+
+        // Check if the user has liked this NFT
+        if (currentAddress) {
+          const userRef = doc(db, "users", currentAddress);
+          const userDoc = await getDoc(userRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (
+              userData.likedArtworks &&
+              userData.likedArtworks.includes(nft.id.toString())
+            ) {
+              setLiked(true); // Set liked status if the user has liked it
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching like data:", error);
+      }
+    };
+
+    fetchLikesAndStatus();
+  }, [nft?.id, currentAddress]);
 
   useEffect(() => {
-    if (isAuction && nft.endTime) {
+    if (isAuction && nft?.endTime) {
       const interval = setInterval(() => {
         setTimeLeft(calculateTimeLeft(nft.endTime));
       }, 1000);
 
       return () => clearInterval(interval);
     }
-  }, [isAuction, nft.endTime]);
+  }, [isAuction, nft?.endTime]);
 
   const calculateTimeLeft = (endTime) => {
     const now = Math.floor(Date.now() / 1000);
     const remainingTime = endTime - now;
-    if (remainingTime <= 0) return 'Auction Ended';
+    if (remainingTime <= 0) return "Auction Ended";
 
     const hours = Math.floor(remainingTime / 3600);
     const minutes = Math.floor((remainingTime % 3600) / 60);
     const seconds = remainingTime % 60;
 
-    return `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+    return `${hours.toString().padStart(2, "0")}h ${minutes
+      .toString()
+      .padStart(2, "0")}m ${seconds.toString().padStart(2, "0")}s`;
   };
 
-  const handleLikeClick = () => {
-    setLiked(!liked);
+  const handleLikeClick = async () => {
+    if (!currentAddress || !nft?.id) {
+      alert("Please connect to MetaMask and ensure the NFT data is loaded.");
+      return;
+    }
+
+    const nftId = nft.id.toString(); // Ensure ID is a string
+
+    try {
+      const userRef = doc(db, "users", currentAddress);
+      const nftLikesRef = doc(db, "nftLikes", nftId);
+
+      const userDoc = await getDoc(userRef);
+      const nftLikesDoc = await getDoc(nftLikesRef);
+
+      let updatedLikes = likeCount; // Start with current like count
+      let userLikes = [];
+
+      if (nftLikesDoc.exists()) {
+        const data = nftLikesDoc.data();
+        userLikes = data.userLikes || [];
+      }
+
+      let userLikedArtworks = [];
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        userLikedArtworks = userData.likedArtworks || [];
+      }
+
+      if (liked) {
+        // Unlike the NFT
+        updatedLikes--;
+        userLikes = userLikes.filter((id) => id !== currentAddress);
+        userLikedArtworks = userLikedArtworks.filter((id) => id !== nftId);
+      } else {
+        // Like the NFT
+        updatedLikes++;
+        userLikes.push(currentAddress);
+        userLikedArtworks.push(nftId);
+      }
+
+      // Update NFT likes document
+      await setDoc(
+        nftLikesRef,
+        { likeCount: updatedLikes, userLikes },
+        { merge: true }
+      );
+
+      // Update user liked artworks
+      await updateDoc(userRef, { likedArtworks: userLikedArtworks });
+
+      // Update local state
+      setLiked(!liked);
+      setLikeCount(updatedLikes);
+    } catch (error) {
+      console.error("Error liking/unliking NFT:", error);
+    }
   };
 
   return (
     <div className="bg-white shadow-lg rounded-xl overflow-hidden p-4 w-full max-w-lg mx-auto transition-transform transform hover:scale-105">
       <div className="relative">
-        {/* Use different routes based on whether it's an auction or market listing */}
-        <Link href={isAuction ? `/auction/${nft.id}` : `/market/${nft.id}`}>
+        <Link href={isAuction ? `/auction/${nft?.id}` : `/market/${nft?.id}`}>
           <img
-            src={nft.image || 'https://via.placeholder.com/565x551'}
-            alt={nft.title}
+            src={nft?.image || "https://via.placeholder.com/565x551"}
+            alt={nft?.title || "NFT Image"}
             className="w-full h-64 object-cover rounded-md cursor-pointer"
           />
         </Link>
@@ -52,31 +149,31 @@ const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
       </div>
 
       <div className="flex items-center justify-between mt-4">
-        {/* Owner Profile */}
         <div className="flex items-center space-x-2">
           <img
-            src={nft.ownerAvatar || '/default-avatar.png'}
-            alt={nft.owner || 'Unknown owner'}
+            src={nft?.ownerAvatar || "images/default-avatar.png"}
+            alt={nft?.owner || "Unknown owner"}
             className="w-9 h-9 rounded-full border-2 border-blue-400 object-cover"
           />
           <span className="text-sm font-medium text-gray-700 truncate w-32">
-            {nft.owner ? `${nft.owner.slice(0, 6)}...${nft.owner.slice(-4)}` : 'Unknown Owner'}
+            {nft?.owner
+              ? `${nft.owner.slice(0, 6)}...${nft.owner.slice(-4)}`
+              : "Unknown Owner"}
           </span>
         </div>
 
-        {/* Like Button */}
         <div className="flex items-center space-x-1">
           <button
             onClick={handleLikeClick}
             className={`p-1 w-8 h-8 rounded-full transition-colors duration-300 focus:outline-none ${
-              liked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
+              liked ? "text-red-500" : "text-gray-400 hover:text-red-500"
             }`}
             aria-label="Like NFT"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="w-full h-full"
-              fill={liked ? 'currentColor' : 'none'}
+              fill={liked ? "currentColor" : "none"}
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={liked ? 0 : 2}
@@ -88,38 +185,42 @@ const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
               />
             </svg>
           </button>
-          <span className="text-sm text-gray-600">{nft.likes || 0} Likes</span>
+          <span className="text-sm text-gray-600">{likeCount} Likes</span>
         </div>
       </div>
 
       <div className="mt-4">
-        {/* Use different routes for title based on whether it's an auction or market listing */}
-        <Link href={isAuction ? `/auction/${nft.id}` : `/market/${nft.id}`}>
+        <Link href={isAuction ? `/auction/${nft?.id}` : `/market/${nft?.id}`}>
           <h3 className="text-lg font-semibold text-gray-800 hover:underline cursor-pointer">
-            {nft.title || 'Untitled NFT'}
+            {nft?.title || "Untitled NFT"}
           </h3>
         </Link>
-        <p className="text-sm text-gray-500">{nft.description || 'No description available.'}</p>
+        <p className="text-sm text-gray-500">
+          {nft?.description || "No description available."}
+        </p>
       </div>
 
       <div className="mt-4 bg-gray-50 p-3 rounded-lg flex justify-between items-center">
         {isAuction ? (
-          <>
+          <div>
             <span className="block text-sm text-gray-500">Current Bid</span>
             <span className="block text-lg font-semibold text-gray-800">
-              {ethers.utils.formatUnits(nft.highestBid, 'ether')} ETH
+              {nft?.highestBid ? `${nft.highestBid} ETH` : "0 ETH"}
             </span>
-          </>
+          </div>
         ) : (
-          <>
+          <div>
             <span className="block text-sm text-gray-500">Price</span>
-            <span className="block text-lg font-semibold text-gray-800">{nft.price} ETH</span>
-          </>
+            <span className="block text-lg font-semibold text-gray-800">
+              {nft?.price ? `${nft.price} ETH` : "0 ETH"}
+            </span>
+          </div>
         )}
       </div>
 
       <div className="mt-4">
-        {nft.owner && nft.owner.toLowerCase() !== currentAddress?.toLowerCase() ? (
+        {nft?.owner &&
+        nft.owner.toLowerCase() !== currentAddress?.toLowerCase() ? (
           <>
             {isAuction ? (
               <button

@@ -93,4 +93,4 @@ const NFTGallery = ({ provider, contractAddress, ownerAddress, showSellButton, o
   );
 };
 
-export default NFTGallery;
+export default NFTGallery; 

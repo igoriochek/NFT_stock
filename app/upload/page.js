@@ -1,20 +1,20 @@
-"use client";
-import React, { useState, useEffect } from "react";
+'use client';
+import { useState } from "react";
 import axios from "axios";
-import MetamaskAuth from "../components/MetamaskAuth";
-import NFTGallery from "../components/NftGallery";
 import { ethers } from "ethers";
-import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
+import { useMetaMask } from "../context/MetaMaskContext"; // Use the MetaMask context
+import NFTGallery from "../components/NftGallery";
 import SellModal from "../modals/SellModal";
 import AuctionModal from "../modals/AuctionModal";
+import { db } from "../firebase"; // Import Firebase
+import { doc, setDoc } from "firebase/firestore"; // Firebase methods for creating documents
+import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const EXPECTED_CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID);
 const pinataJwt = process.env.NEXT_PUBLIC_PINATA_JWT;
 
 const Upload = () => {
-  const [address, setAddress] = useState("");
-  const [provider, setProvider] = useState(null);
   const [formInput, setFormInput] = useState({ title: "", description: "" });
   const [fileUrl, setFileUrl] = useState(null);
   const [ipfsHash, setIpfsHash] = useState(null);
@@ -23,21 +23,10 @@ const Upload = () => {
   const [selectedTokenId, setSelectedTokenId] = useState(null);
   const [nfts, setNfts] = useState([]);
 
-  useEffect(() => {
-    const checkMetaMaskConnection = async () => {
-      if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const accounts = await provider.listAccounts();
-        if (accounts.length > 0) {
-          setProvider(provider);
-          setAddress(accounts[0]);
-        }
-      }
-    };
+  // Use the MetaMask context to get provider, currentAddress, balance, and connection state
+  const { isConnected, provider, address: currentAddress, connectMetaMask } = useMetaMask();
 
-    checkMetaMaskConnection();
-  }, []);
-
+  // Function to handle file upload to Pinata (IPFS)
   const onChange = async (e) => {
     const file = e.target.files[0];
     try {
@@ -60,13 +49,17 @@ const Upload = () => {
     }
   };
 
+  // Function to mint the NFT and create a Firebase document
   const uploadAndMint = async () => {
     const { title, description } = formInput;
     if (!title || !description || !fileUrl) return;
+
+    // Data to be pinned to IPFS via Pinata
     const data = {
       pinataMetadata: { name: title },
-      pinataContent: { title, description, image: fileUrl, creator: address },
+      pinataContent: { title, description, image: fileUrl, creator: currentAddress },
     };
+
     try {
       const res = await axios.post(
         "https://api.pinata.cloud/pinning/pinJSONToIPFS",
@@ -82,28 +75,44 @@ const Upload = () => {
       setIpfsHash(url);
 
       if (!provider) {
-        alert("Please connect to Metamask first.");
+        alert("Please connect to MetaMask first.");
         return;
       }
 
       const network = await provider.getNetwork();
       if (network.chainId !== EXPECTED_CHAIN_ID) {
-        alert(`Please connect to the correct network.`);
+        alert("Please connect to the correct network.");
         return;
       }
 
       const signer = provider.getSigner();
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-      let transaction = await contract.mint(url);
-      await transaction.wait();
+      let transaction = await contract.mint(url); // Mint the NFT with the IPFS URL
+      const receipt = await transaction.wait(); // Wait for transaction to complete
+      const tokenId = receipt.events[0].args.tokenId.toString(); // Get tokenId from event
+
       alert("NFT Minted Successfully!");
+
+      // Create a document in Firebase after minting the NFT
+      const nftRef = doc(db, "nfts", tokenId); // Use the tokenId as document ID
+      await setDoc(nftRef, {
+        owner: currentAddress, // Store the owner's address
+        tokenId: tokenId,
+        createdAt: new Date(), // Store creation time
+        likes: 0, // Initialize likes count to 0
+        auctionActive: false, // Default auction status
+        listed: false, // Default listing status
+      });
+
+      refreshNFTs(); // Refresh the gallery after minting
+
     } catch (error) {
       console.error("Error uploading or minting:", error);
       alert(`Error: ${error.message}`);
     }
   };
 
-  // Step 1: Declare the refreshNFTs function
+  // Function to refresh the NFTs for the current user
   const refreshNFTs = async () => {
     try {
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
@@ -126,42 +135,61 @@ const Upload = () => {
           });
         }
       }
-      setNfts(items); // Update the NFT state
+      setNfts(items);
     } catch (error) {
-      console.error('Error loading NFTs:', error);
+      console.error("Error loading NFTs:", error);
     }
   };
 
+  // Function to handle selling an NFT
   const handleSellNFT = async (price) => {
     if (!provider) {
-      alert("Please connect to Metamask first.");
+      alert("Please connect to MetaMask first.");
       return;
     }
+
     const signer = provider.getSigner();
     const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
+
+    // Ensure selectedTokenId is a string
+    const tokenIdString = selectedTokenId.toString();
+
     await contract.listForSale(selectedTokenId, ethers.utils.parseEther(price));
     alert("NFT Listed for Sale!");
-    setShowSellModal(false);
 
-    // Update the NFT list after listing
+    // Update Firebase document with listed status
+    const nftRef = doc(db, "nfts", tokenIdString); // Ensure tokenId is a string
+    await setDoc(nftRef, { listed: true }, { merge: true });
+
+    setShowSellModal(false);
     refreshNFTs();
   };
 
+  // Function to handle starting an auction for an NFT
   const handleStartAuction = async (duration) => {
     if (!provider) {
-      alert("Please connect to Metamask first.");
+      alert("Please connect to MetaMask first.");
       return;
     }
+
     const signer = provider.getSigner();
     const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
+
+    // Ensure selectedTokenId is a string
+    const tokenIdString = selectedTokenId.toString();
+
     await contract.startAuction(selectedTokenId, duration);
     alert("Auction Started!");
-    setShowAuctionModal(false);
 
-    // Update the NFT list after auction starts
+    // Update Firebase document with auction status
+    const nftRef = doc(db, "nfts", tokenIdString); // Ensure tokenId is a string
+    await setDoc(nftRef, { auctionActive: true }, { merge: true });
+
+    setShowAuctionModal(false);
     refreshNFTs();
   };
 
+  // Event handlers for selling and auction
   const handleSellClick = (tokenId) => {
     setSelectedTokenId(tokenId);
     setShowSellModal(true);
@@ -172,6 +200,22 @@ const Upload = () => {
     setShowAuctionModal(true);
   };
 
+  // If MetaMask is not connected, show the connect message
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center text-white">
+        <h1 className="text-3xl font-bold mb-6">Upload and Mint Your NFT</h1>
+        <p className="mb-6">Please connect to MetaMask to proceed.</p>
+        <button
+          onClick={connectMetaMask}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg"
+        >
+          Connect MetaMask
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-8 bg-gray-900 min-h-screen">
       <h1 className="text-3xl font-bold text-white text-center mb-8">
@@ -179,10 +223,6 @@ const Upload = () => {
       </h1>
 
       <div className="bg-gray-800 p-8 rounded-lg shadow-md max-w-xl mx-auto">
-        {!provider && (
-          <MetamaskAuth setAddress={setAddress} setProvider={setProvider} />
-        )}
-
         <div className="space-y-4">
           <div>
             <label className="block text-gray-300 mb-2" htmlFor="title">
@@ -234,24 +274,21 @@ const Upload = () => {
         </div>
       </div>
 
-      {provider && (
-        <div className="mt-10">
-          <h2 className="text-2xl font-bold text-gray-300 text-center mb-6">
-            My NFTs
-          </h2>
-          {/* NFT Gallery */}
-          <NFTGallery
-            provider={provider}
-            contractAddress={contractAddress}
-            ownerAddress={address}
-            showSellButton={true}
-            onSell={handleSellClick}
-            onAuction={handleAuctionClick}
-            nfts={nfts} // Pass the loaded NFTs
-            refreshNFTs={refreshNFTs} // Pass refreshNFTs to the gallery
-          />
-        </div>
-      )}
+      <div className="mt-10">
+        <h2 className="text-2xl font-bold text-gray-300 text-center mb-6">
+          My NFTs
+        </h2>
+        <NFTGallery
+          provider={provider}
+          contractAddress={contractAddress}
+          ownerAddress={currentAddress}
+          showSellButton={true}
+          onSell={handleSellClick}
+          onAuction={handleAuctionClick}
+          nfts={nfts}
+          refreshNFTs={refreshNFTs}
+        />
+      </div>
 
       {showSellModal && (
         <SellModal
@@ -259,6 +296,7 @@ const Upload = () => {
           confirmSell={handleSellNFT}
         />
       )}
+
       {showAuctionModal && (
         <AuctionModal
           closeModal={() => setShowAuctionModal(false)}

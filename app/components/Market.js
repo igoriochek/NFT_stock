@@ -1,12 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import NFTCard from './NFTCard';  // Import the NFTCard component
+import NFTCard from './NFTCard'; // Import the NFTCard component
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 
-const Market = ({ provider, contractAddress }) => {
+const Market = ({ provider, contractAddress, currentAddress }) => {
   const [listedNFTs, setListedNFTs] = useState([]);
-  const [currentAddress, setCurrentAddress] = useState(null);
 
   useEffect(() => {
     if (provider) {
@@ -16,10 +15,11 @@ const Market = ({ provider, contractAddress }) => {
 
   const loadListedNFTs = async () => {
     try {
+      if (!provider) return;
+
       const signer = provider.getSigner();
       const address = await signer.getAddress();
-      setCurrentAddress(address);
-
+      
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const listedTokens = await contract.getListedTokens();
 
@@ -29,13 +29,21 @@ const Market = ({ provider, contractAddress }) => {
         const tokenURI = await contract.tokenURI(tokenId);
         const price = await contract.getPrice(tokenId);
         const owner = await contract.ownerOf(tokenId);
+
         const response = await fetch(tokenURI);
         if (!response.ok) {
           throw new Error(`Failed to fetch metadata for token ${tokenId}`);
         }
         const metadata = await response.json();
-        items.push({ id: tokenId, price: ethers.utils.formatUnits(price, 'ether'), owner, ...metadata });
+
+        items.push({
+          id: tokenId,
+          price: ethers.utils.formatUnits(price, 'ether'),
+          owner,
+          ...metadata,
+        });
       }
+
       setListedNFTs(items);
     } catch (error) {
       console.error('Error loading listed NFTs:', error);
@@ -53,12 +61,12 @@ const Market = ({ provider, contractAddress }) => {
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
 
       const transaction = await contract.buy(nft.id, {
-        value: ethers.utils.parseUnits(nft.price, 'ether')
+        value: ethers.utils.parseUnits(nft.price, 'ether'),
       });
       await transaction.wait();
 
       alert('NFT bought successfully!');
-      loadListedNFTs();  // Refresh the list of NFTs for sale
+      loadListedNFTs();
     } catch (error) {
       console.error('Error buying NFT:', error);
       alert(`Error: ${error.message}`);
@@ -70,13 +78,13 @@ const Market = ({ provider, contractAddress }) => {
       <h1 className="text-5xl font-bold text-gray-100 text-center my-8 shadow-md">Market</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-10">
         {listedNFTs.length > 0 ? (
-          listedNFTs.map(nft => (
+          listedNFTs.map((nft) => (
             <div key={nft.id} className="flex justify-center">
               <NFTCard
                 nft={nft}
-                currentAddress={currentAddress}
-                onBuy={buyNFT}  // Pass the buy function as prop
-                isAuction={false}  // Indicate this is for Market, not Auction
+                currentAddress={currentAddress} // Ensure currentAddress is passed here
+                onBuy={buyNFT}
+                isAuction={false}
               />
             </div>
           ))

@@ -1,10 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import NFTCard from './NFTCard';  // Import the NFTCard component
+import NFTCard from './NFTCard';
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 
-const Auction = ({ provider, contractAddress }) => {
+const Auction = ({ provider, contractAddress, currentAddress }) => {
   const [auctions, setAuctions] = useState([]);
 
   useEffect(() => {
@@ -15,6 +15,8 @@ const Auction = ({ provider, contractAddress }) => {
 
   const loadAuctions = async () => {
     try {
+      if (!provider) return;
+
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const totalSupply = await contract.tokenCount();
       const items = [];
@@ -30,7 +32,14 @@ const Auction = ({ provider, contractAddress }) => {
           }
 
           const metadata = await response.json();
-          items.push({ id: i, highestBidder, highestBid, endTime, ...metadata });
+
+          items.push({
+            id: i,
+            highestBidder,
+            highestBid: highestBid.toString(),
+            endTime,
+            ...metadata,
+          });
         }
       }
 
@@ -41,7 +50,6 @@ const Auction = ({ provider, contractAddress }) => {
   };
 
   const placeBid = async (nft) => {
-    // Functionality to handle placing bids (not fully implemented for this example)
     alert(`Placing bid on NFT ${nft.id}`);
   };
 
@@ -54,9 +62,9 @@ const Auction = ({ provider, contractAddress }) => {
             <div key={nft.id} className="flex justify-center">
               <NFTCard
                 nft={nft}
-                currentAddress="" // Add your logic to pass current user's address
-                onBid={placeBid}  // Function to handle bidding
-                isAuction={true}  // Indicate this is for Auction
+                currentAddress={currentAddress}
+                onBid={placeBid}
+                isAuction={true}
               />
             </div>
           ))
@@ -67,6 +75,5 @@ const Auction = ({ provider, contractAddress }) => {
     </div>
   );
 };
-
 
 export default Auction;

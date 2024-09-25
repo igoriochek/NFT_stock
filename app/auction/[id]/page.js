@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { useParams } from "next/navigation";
+import { useMetaMask } from "@/app/context/MetaMaskContext"
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
-import MetamaskAuth from "@/app/components/MetamaskAuth";
 import PlaceBidModal from "@/app/modals/PlaceBidModal";
 import { shortenAddress } from "@/app/utils/shortenAddress";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
@@ -14,30 +14,14 @@ const NFTDetail = () => {
   const [nft, setNft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [provider, setProvider] = useState(null);
-  const [address, setAddress] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState("bids");
   const [bids, setBids] = useState([]);
 
   const { id } = useParams();
 
-  useEffect(() => {
-    const checkMetaMaskConnection = async () => {
-      if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const accounts = await provider.listAccounts();
-        if (accounts.length > 0) {
-          setProvider(provider);
-          setAddress(accounts[0]);
-        }
-      }
-    };
-
-    if (!provider) {
-      checkMetaMaskConnection();
-    }
-  }, [provider]);
+  // Use MetaMaskContext to get provider and address
+  const { isConnected, provider, address, connectMetaMask } = useMetaMask();
 
   useEffect(() => {
     if (provider && id && contractAddress) {
@@ -127,10 +111,6 @@ const NFTDetail = () => {
           <div>
             <h2 className="text-xl font-bold mb-4">Details</h2>
             <p>{nft.description}</p>
-            <p>
-              It is a long established fact that a reader will be distracted by
-              the readable content of a page when looking at its layout.
-            </p>
 
             <h2 className="text-xl font-bold mt-8">Share Item</h2>
             <div className="flex space-x-4 mt-4">
@@ -186,9 +166,24 @@ const NFTDetail = () => {
   const isAuctionEnded = Math.floor(Date.now() / 1000) >= nft.endTime;
   const minBid = parseFloat(ethers.utils.formatUnits(nft.highestBid, "ether")) + 0.1;
 
+  // If MetaMask is not connected, prompt to connect
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center text-white">
+        <h1 className="text-3xl font-bold mb-6">NFT Details</h1>
+        <p className="mb-6">Please connect to MetaMask to view NFT details and place bids.</p>
+        <button
+          onClick={connectMetaMask}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg"
+        >
+          Connect MetaMask
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-8">
-      {!provider && <MetamaskAuth setAddress={setAddress} setProvider={setProvider} />}
       <div className="flex flex-col md:flex-row">
         <div className="w-full md:w-1/2">
           <img src={nft.image} alt={nft.title} className="rounded-lg w-full" />

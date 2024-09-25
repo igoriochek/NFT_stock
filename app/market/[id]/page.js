@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { useParams } from "next/navigation";
+import { useMetaMask } from "@/app/context/MetaMaskContext"
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
-import MetamaskAuth from "@/app/components/MetamaskAuth";
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
@@ -11,29 +11,11 @@ const MarketNFTDetail = () => {
   const [nft, setNft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [provider, setProvider] = useState(null);
-  const [address, setAddress] = useState("");
-  const [price, setPrice] = useState(null); // Store the price of the NFT
 
   const { id } = useParams();
 
-  useEffect(() => {
-    const checkMetaMaskConnection = async () => {
-      if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const accounts = await provider.listAccounts();
-        if (accounts.length > 0) {
-          const address = accounts[0];
-          setProvider(provider);
-          setAddress(address);
-        }
-      }
-    };
-
-    if (!provider) {
-      checkMetaMaskConnection();
-    }
-  }, [provider]);
+  // Use MetaMaskContext to get provider, current address, and connection state
+  const { isConnected, provider, address, connectMetaMask } = useMetaMask();
 
   useEffect(() => {
     if (provider && id && contractAddress) {
@@ -91,9 +73,24 @@ const MarketNFTDetail = () => {
   if (error) return <p>Error: {error}</p>;
   if (!nft) return <p>NFT not found or inactive.</p>;
 
+  // If MetaMask is not connected, prompt to connect
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center text-white">
+        <h1 className="text-3xl font-bold mb-6">NFT Details</h1>
+        <p className="mb-6">Please connect to MetaMask to view NFT details and make purchases.</p>
+        <button
+          onClick={connectMetaMask}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg"
+        >
+          Connect MetaMask
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-8">
-      {!provider && <MetamaskAuth setAddress={setAddress} setProvider={setProvider} />}
       <div className="flex flex-col md:flex-row">
         <div className="w-full md:w-1/2">
           <img src={nft.image} alt={nft.title} className="rounded-lg w-full" />
