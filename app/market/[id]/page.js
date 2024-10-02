@@ -4,6 +4,7 @@ import { ethers } from "ethers";
 import { useParams } from "next/navigation";
 import { useMetaMask } from "@/app/context/MetaMaskContext"
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
+import { shortenAddress } from "@/app/utils/shortenAddress";
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
@@ -102,7 +103,7 @@ const MarketNFTDetail = () => {
 
           <div className="flex justify-between mt-6">
             <div className="text-center">
-              <p className="text-sm font-bold text-white">{nft.owner}</p>
+              <p className="text-sm font-bold text-white">{shortenAddress(nft.owner)}</p>
               <p className="text-xs text-gray-400">Owner</p>
             </div>
           </div>

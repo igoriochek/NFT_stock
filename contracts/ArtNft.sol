@@ -85,19 +85,24 @@ contract ArtNFT is ERC721URIStorage, Ownable {
     }
 
     function finalizeAuction(uint256 tokenId) external {
-        require(auctions[tokenId].active, "Auction is not active");
-        require(block.timestamp >= auctions[tokenId].endTime, "Auction has not ended yet");
+    require(auctions[tokenId].active, "Auction is not active");
+    require(block.timestamp >= auctions[tokenId].endTime, "Auction has not ended yet");
 
-        auctions[tokenId].active = false;
+    auctions[tokenId].active = false;
 
-        if (auctions[tokenId].highestBidder != address(0)) {
-            address owner = ownerOf(tokenId);
-            _transfer(owner, auctions[tokenId].highestBidder, tokenId);
-            payable(owner).transfer(auctions[tokenId].highestBid);
+    if (auctions[tokenId].highestBidder != address(0)) {
+        address owner = ownerOf(tokenId);
+        uint256 reward = auctions[tokenId].highestBid / 100; // 1% reward
+        uint256 sellerProceeds = auctions[tokenId].highestBid - reward;
 
-            emit AuctionEnded(tokenId, auctions[tokenId].highestBidder, auctions[tokenId].highestBid);
-        }
+        _transfer(owner, auctions[tokenId].highestBidder, tokenId);
+        payable(owner).transfer(sellerProceeds);
+        payable(msg.sender).transfer(reward);  // Reward the caller
+
+        emit AuctionEnded(tokenId, auctions[tokenId].highestBidder, auctions[tokenId].highestBid);
     }
+}
+
 
     function getListedTokens() external view returns (uint256[] memory) {
         uint256 count = 0;

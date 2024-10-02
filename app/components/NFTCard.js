@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { ethers } from "ethers";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase"; // Firebase initialization
 import Link from "next/link";
+import { shortenAddress } from "../utils/shortenAddress"; // Utility to shorten wallet addresses
 
-const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
+const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
   const [timeLeft, setTimeLeft] = useState("");
   const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0); // Initialize with 0
+  const [likeCount, setLikeCount] = useState(0);
+  const [ownerUsername, setOwnerUsername] = useState(""); // State for owner username
 
   // Fetch the likes count and user liked status when the page loads
   useEffect(() => {
@@ -18,7 +19,6 @@ const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
         const nftLikesRef = doc(db, "nftLikes", nft.id.toString());
         const nftLikesDoc = await getDoc(nftLikesRef);
 
-        // If the document exists, set the like count
         if (nftLikesDoc.exists()) {
           const data = nftLikesDoc.data();
           setLikeCount(data.likeCount || 0); // Set like count from Firebase
@@ -46,6 +46,30 @@ const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
 
     fetchLikesAndStatus();
   }, [nft?.id, currentAddress]);
+
+  // Fetch owner's username from Firebase
+  useEffect(() => {
+    const fetchOwnerUsername = async () => {
+      if (!nft?.owner) return;
+
+      try {
+        const userRef = doc(db, "users", nft.owner.toLowerCase());
+        const userDoc = await getDoc(userRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setOwnerUsername(userData.username || shortenAddress(nft.owner)); // Set username or fallback to wallet address
+        } else {
+          setOwnerUsername(shortenAddress(nft.owner)); // If no user found, fallback to wallet address
+        }
+      } catch (error) {
+        console.error("Error fetching owner username:", error);
+        setOwnerUsername(shortenAddress(nft.owner)); // Fallback to wallet address in case of error
+      }
+    };
+
+    fetchOwnerUsername();
+  }, [nft?.owner]);
 
   useEffect(() => {
     if (isAuction && nft?.endTime) {
@@ -122,7 +146,6 @@ const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
       // Update user liked artworks
       await updateDoc(userRef, { likedArtworks: userLikedArtworks });
 
-      // Update local state
       setLiked(!liked);
       setLikeCount(updatedLikes);
     } catch (error) {
@@ -131,7 +154,7 @@ const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
   };
 
   return (
-    <div className="bg-white shadow-lg rounded-xl overflow-hidden p-4 w-full max-w-lg mx-auto transition-transform transform hover:scale-105">
+    <div className="bg-white shadow-lg rounded-xl overflow-hidden p-4 w-full max-w-full mx-auto transition-transform transform hover:scale-105">
       <div className="relative">
         <Link href={isAuction ? `/auction/${nft?.id}` : `/market/${nft?.id}`}>
           <img
@@ -152,13 +175,11 @@ const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
         <div className="flex items-center space-x-2">
           <img
             src={nft?.ownerAvatar || "images/default-avatar.png"}
-            alt={nft?.owner || "Unknown owner"}
+            alt={ownerUsername}
             className="w-9 h-9 rounded-full border-2 border-blue-400 object-cover"
           />
           <span className="text-sm font-medium text-gray-700 truncate w-32">
-            {nft?.owner
-              ? `${nft.owner.slice(0, 6)}...${nft.owner.slice(-4)}`
-              : "Unknown Owner"}
+            {ownerUsername}
           </span>
         </div>
 
@@ -220,27 +241,9 @@ const NFTCard = ({ nft, currentAddress, onBuy, isAuction, onBid }) => {
 
       <div className="mt-4">
         {nft?.owner &&
-        nft.owner.toLowerCase() !== currentAddress?.toLowerCase() ? (
-          <>
-            {isAuction ? (
-              <button
-                onClick={() => onBid(nft)}
-                className="bg-blue-500 text-white py-2 px-4 rounded-lg w-full hover:bg-blue-600 transition-all font-semibold"
-              >
-                Place Bid
-              </button>
-            ) : (
-              <button
-                onClick={() => onBuy(nft)}
-                className="bg-blue-500 text-white py-2 px-4 rounded-lg w-full hover:bg-blue-600 transition-all font-semibold"
-              >
-                Buy Now
-              </button>
-            )}
-          </>
-        ) : (
+        nft.owner.toLowerCase() === currentAddress?.toLowerCase() ? (
           <p className="text-sm text-gray-500 text-center">Your NFT</p>
-        )}
+        ) : null}
       </div>
     </div>
   );

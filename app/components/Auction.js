@@ -16,42 +16,43 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
   const loadAuctions = async () => {
     try {
       if (!provider) return;
-
+  
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const totalSupply = await contract.tokenCount();
       const items = [];
-
+  
       for (let i = 1; i <= totalSupply; i++) {
         const [active, highestBidder, highestBid, endTime] = await contract.getAuctionDetails(i);
         if (active) {
           const tokenURI = await contract.tokenURI(i);
+          const owner = await contract.ownerOf(i); // Fetch the owner from the contract
+  
           const response = await fetch(tokenURI);
-
+  
           if (!response.ok) {
             throw new Error(`Failed to fetch metadata for token ${i}`);
           }
-
+  
           const metadata = await response.json();
-
+  
+          // Push all relevant NFT data into the items array, including the owner
           items.push({
             id: i,
             highestBidder,
             highestBid: highestBid.toString(),
             endTime,
-            ...metadata,
+            owner, // Add owner field here
+            ...metadata, // Include metadata like title, image, etc.
           });
         }
       }
-
+  
       setAuctions(items);
     } catch (error) {
       console.error('Error loading auctions:', error);
     }
   };
-
-  const placeBid = async (nft) => {
-    alert(`Placing bid on NFT ${nft.id}`);
-  };
+  
 
   return (
     <div className="container mx-auto px-8 lg:px-16">
@@ -63,7 +64,6 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
               <NFTCard
                 nft={nft}
                 currentAddress={currentAddress}
-                onBid={placeBid}
                 isAuction={true}
               />
             </div>
