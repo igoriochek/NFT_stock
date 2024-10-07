@@ -16,19 +16,22 @@ const NFTGallery = ({ provider, contractAddress, ownerAddress, showSellButton, o
       const items = [];
 
       for (let i = 1; i <= totalSupply; i++) {
-        const tokenURI = await contract.tokenURI(i);
-        const listed = await contract.listedTokens(i);
-        const [auctionActive] = await contract.getAuctionDetails(i);
+        const owner = await contract.ownerOf(i);
+        if (owner.toLowerCase() === ownerAddress.toLowerCase()) {
+          const tokenURI = await contract.tokenURI(i);
+          const listed = await contract.listedTokens(i);
+          const [auctionActive] = await contract.getAuctionDetails(i);
 
-        const response = await fetch(tokenURI);
-        if (response.ok) {
-          const metadata = await response.json();
-          items.push({
-            id: i,
-            metadata,
-            listed,
-            auctionActive,
-          });
+          const response = await fetch(tokenURI);
+          if (response.ok) {
+            const metadata = await response.json();
+            items.push({
+              id: i,
+              metadata,
+              listed,
+              auctionActive,
+            });
+          }
         }
       }
 
@@ -93,4 +96,4 @@ const NFTGallery = ({ provider, contractAddress, ownerAddress, showSellButton, o
   );
 };
 
-export default NFTGallery; 
+export default NFTGallery;

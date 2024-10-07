@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore"; // Firebase Firestore functions
 import { db } from "../firebase"; // Firebase initialization
 import Link from "next/link";
 import { shortenAddress } from "../utils/shortenAddress"; // Utility to shorten wallet addresses
+import { ethers } from "ethers"; // Needed for ETH conversion
+import { getUserProfileByAddress } from "../utils/firebaseUtils"; // Utility function for fetching username
 
 const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
   const [timeLeft, setTimeLeft] = useState("");
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [ownerUsername, setOwnerUsername] = useState(""); // State for owner username
+  const [ownerProfilePicture, setOwnerProfilePicture] = useState(
+    "/images/default-avatar.png"
+  ); // State for owner profile picture
 
   // Fetch the likes count and user liked status when the page loads
   useEffect(() => {
@@ -47,28 +52,25 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
     fetchLikesAndStatus();
   }, [nft?.id, currentAddress]);
 
-  // Fetch owner's username from Firebase
+  // Fetch owner's username and profile picture from Firebase
   useEffect(() => {
-    const fetchOwnerUsername = async () => {
+    const fetchOwnerData = async () => {
       if (!nft?.owner) return;
 
       try {
-        const userRef = doc(db, "users", nft.owner.toLowerCase());
-        const userDoc = await getDoc(userRef);
-
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setOwnerUsername(userData.username || shortenAddress(nft.owner)); // Set username or fallback to wallet address
-        } else {
-          setOwnerUsername(shortenAddress(nft.owner)); // If no user found, fallback to wallet address
-        }
+        const ownerProfile = await getUserProfileByAddress(nft.owner); // Fetch profile from Firebase
+        setOwnerUsername(ownerProfile?.username || shortenAddress(nft.owner)); // Set username or fallback to wallet address
+        setOwnerProfilePicture(
+          ownerProfile?.profilePicture || "/images/default-avatar.png"
+        ); // Set profile picture
       } catch (error) {
-        console.error("Error fetching owner username:", error);
+        console.error("Error fetching owner data:", error);
         setOwnerUsername(shortenAddress(nft.owner)); // Fallback to wallet address in case of error
+        setOwnerProfilePicture("/images/default-avatar.png");
       }
     };
 
-    fetchOwnerUsername();
+    fetchOwnerData();
   }, [nft?.owner]);
 
   useEffect(() => {
@@ -174,12 +176,13 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
       <div className="flex items-center justify-between mt-4">
         <div className="flex items-center space-x-2">
           <img
-            src={nft?.ownerAvatar || "images/default-avatar.png"}
+            src={ownerProfilePicture || "/images/default-avatar.png"}
             alt={ownerUsername}
             className="w-9 h-9 rounded-full border-2 border-blue-400 object-cover"
           />
           <span className="text-sm font-medium text-gray-700 truncate w-32">
-            {ownerUsername}
+            {ownerUsername || shortenAddress(nft.owner)}{" "}
+            {/* Display the owner's username or fallback to address */}
           </span>
         </div>
 
@@ -226,7 +229,9 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
           <div>
             <span className="block text-sm text-gray-500">Current Bid</span>
             <span className="block text-lg font-semibold text-gray-800">
-              {nft?.highestBid ? `${nft.highestBid} ETH` : "0 ETH"}
+              {nft?.highestBid
+                ? `${ethers.utils.formatUnits(nft.highestBid, "ether")} ETH`
+                : "0 ETH"}
             </span>
           </div>
         ) : (

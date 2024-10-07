@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { useParams } from "next/navigation";
-import { useMetaMask } from "@/app/context/MetaMaskContext"
+import { useMetaMask } from "@/app/context/MetaMaskContext";
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 import PlaceBidModal from "@/app/modals/PlaceBidModal";
 import { shortenAddress } from "@/app/utils/shortenAddress";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
+import { getUserProfileByAddress } from "@/app/utils/firebaseUtils";
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
@@ -33,13 +34,18 @@ const NFTDetail = () => {
 
   const loadNFTDetails = async () => {
     try {
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+      const contract = new ethers.Contract(
+        contractAddress,
+        ArtNFT.abi,
+        provider
+      );
       const tokenURI = await contract.tokenURI(id);
       const response = await fetch(tokenURI);
       const metadata = await response.json();
 
       const owner = await contract.ownerOf(id);
-      const [active, highestBidder, highestBid, endTime] = await contract.getAuctionDetails(id);
+      const [active, highestBidder, highestBid, endTime] =
+        await contract.getAuctionDetails(id);
 
       setNft({
         id,
@@ -59,17 +65,33 @@ const NFTDetail = () => {
 
   const loadBidHistory = async () => {
     try {
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
-      const filter = contract.filters.BidPlaced(); // Remove the id parameter as it's non-indexed
+      const contract = new ethers.Contract(
+        contractAddress,
+        ArtNFT.abi,
+        provider
+      );
+      const filter = contract.filters.BidPlaced();
       const events = await contract.queryFilter(filter);
 
-      const bidHistory = events
-        .filter((event) => event.args.tokenId.toString() === id)
-        .map((event) => ({
-          bidder: event.args.bidder,
-          amount: ethers.utils.formatUnits(event.args.amount, "ether"),
-          timestamp: event.blockNumber,
-        }));
+      const bidHistory = await Promise.all(
+        events.map(async (event) => {
+          const bidder = event.args.bidder;
+          const bidderProfile = await getUserProfileByAddress(bidder);
+          const bidderName = bidderProfile?.username || shortenAddress(bidder); // Fetch username or fallback to address
+
+          // Get the block information using the block number
+          const block = await provider.getBlock(event.blockNumber);
+          const transactionDate = new Date(block.timestamp * 1000); // Convert to milliseconds and create a date object
+
+          return {
+            bidder: bidderName, // Store username or shortened address
+            amount: ethers.utils.formatUnits(event.args.amount, "ether"),
+            timestamp: event.blockNumber,
+            date: transactionDate.toLocaleDateString(), // Format the date
+            time: transactionDate.toLocaleTimeString(), // Format the time
+          };
+        })
+      );
 
       setBids(bidHistory);
     } catch (error) {
@@ -98,7 +120,8 @@ const NFTDetail = () => {
             {bids.length > 0 ? (
               bids.map((bid, index) => (
                 <p key={index}>
-                  Bid placed: {bid.amount} ETH by {shortenAddress(bid.bidder)}
+                  Bid placed: {bid.amount} ETH by {bid.bidder}{" "}
+                  {/* No need to shorten, it's already a username or short address */}
                 </p>
               ))
             ) : (
@@ -115,26 +138,36 @@ const NFTDetail = () => {
             <h2 className="text-xl font-bold mt-8">Share Item</h2>
             <div className="flex space-x-4 mt-4">
               {/* Twitter Share */}
-              <a href={`https://twitter.com/intent/tweet?url=${window.location.href}&text=${nft.title}`} 
-                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all">
+              <a
+                href={`https://twitter.com/intent/tweet?url=${window.location.href}&text=${nft.title}`}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all"
+              >
                 <FaTwitter className="text-blue-500 w-6 h-6" />
               </a>
-              
+
               {/* Facebook Share */}
-              <a href={`https://www.facebook.com/sharer/sharer.php?u=${window.location.href}`} 
-                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all">
+              <a
+                href={`https://www.facebook.com/sharer/sharer.php?u=${window.location.href}`}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all"
+              >
                 <FaFacebook className="text-blue-600 w-6 h-6" />
               </a>
 
               {/* Instagram Share (Custom link, as Instagram doesn't support web-based shares) */}
-              <a href="https://www.instagram.com" 
-                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all" target="_blank" rel="noreferrer">
+              <a
+                href="https://www.instagram.com"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all"
+                target="_blank"
+                rel="noreferrer"
+              >
                 <FaInstagram className="text-pink-500 w-6 h-6" />
               </a>
 
               {/* LinkedIn Share */}
-              <a href={`https://www.linkedin.com/shareArticle?mini=true&url=${window.location.href}&title=${nft.title}`} 
-                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all">
+              <a
+                href={`https://www.linkedin.com/shareArticle?mini=true&url=${window.location.href}&title=${nft.title}`}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-all"
+              >
                 <FaLinkedin className="text-blue-700 w-6 h-6" />
               </a>
             </div>
@@ -146,7 +179,8 @@ const NFTDetail = () => {
             {bids.length > 0 ? (
               bids.map((bid, index) => (
                 <p key={index}>
-                  Bid accepted {bid.amount} ETH by {shortenAddress(bid.bidder)} at block {bid.timestamp}
+                  Bid accepted {bid.amount} ETH by {bid.bidder} on {bid.date} at{" "}
+                  {bid.time}
                 </p>
               ))
             ) : (
@@ -164,14 +198,17 @@ const NFTDetail = () => {
   if (!nft) return <p>NFT not found or inactive.</p>;
 
   const isAuctionEnded = Math.floor(Date.now() / 1000) >= nft.endTime;
-  const minBid = parseFloat(ethers.utils.formatUnits(nft.highestBid, "ether")) + 0.1;
+  const minBid =
+    parseFloat(ethers.utils.formatUnits(nft.highestBid, "ether")) + 0.1;
 
   // If MetaMask is not connected, prompt to connect
   if (!isConnected) {
     return (
       <div className="container mx-auto px-4 py-8 text-center text-white">
         <h1 className="text-3xl font-bold mb-6">NFT Details</h1>
-        <p className="mb-6">Please connect to MetaMask to view NFT details and place bids.</p>
+        <p className="mb-6">
+          Please connect to MetaMask to view NFT details and place bids.
+        </p>
         <button
           onClick={connectMetaMask}
           className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg"
@@ -196,7 +233,9 @@ const NFTDetail = () => {
           <div className="flex justify-between mt-6">
             <div className="text-center">
               <p className="text-sm font-bold text-white">Owner</p>
-              <p className="text-xs text-gray-400">{shortenAddress(nft.owner)}</p>
+              <p className="text-xs text-gray-400">
+                {shortenAddress(nft.owner)}
+              </p>
             </div>
           </div>
 
@@ -207,7 +246,9 @@ const NFTDetail = () => {
             </div>
             <div>
               <p className="text-sm text-gray-400">Current Bid:</p>
-              <p className="font-semibold text-lg text-white">{ethers.utils.formatUnits(nft.highestBid, "ether")} ETH</p>
+              <p className="font-semibold text-lg text-white">
+                {ethers.utils.formatUnits(nft.highestBid, "ether")} ETH
+              </p>
             </div>
           </div>
 
@@ -234,26 +275,37 @@ const NFTDetail = () => {
 
       <div className="mt-8">
         <div className="flex space-x-4 border-b">
-          <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white transition-all hover:from-blue-600 hover:to-blue-500" onClick={() => setActiveTab("bids")}>
+          <button
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white transition-all hover:from-blue-600 hover:to-blue-500"
+            onClick={() => setActiveTab("bids")}
+          >
             Bids
           </button>
-          <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white transition-all hover:from-blue-600 hover:to-blue-500" onClick={() => setActiveTab("details")}>
+          <button
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white transition-all hover:from-blue-600 hover:to-blue-500"
+            onClick={() => setActiveTab("details")}
+          >
             Details
           </button>
-          <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white transition-all hover:from-blue-600 hover:to-blue-500" onClick={() => setActiveTab("history")}>
+          <button
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white transition-all hover:from-blue-600 hover:to-blue-500"
+            onClick={() => setActiveTab("history")}
+          >
             History
           </button>
         </div>
 
-        <div className="mt-4 transition-opacity duration-500">{renderTabContent()}</div>
+        <div className="mt-4 transition-opacity duration-500">
+          {renderTabContent()}
+        </div>
       </div>
 
       {showModal && (
-        <PlaceBidModal 
-          nft={nft} 
-          closeModal={() => setShowModal(false)} 
-          provider={provider} 
-          contractAddress={contractAddress} 
+        <PlaceBidModal
+          nft={nft}
+          closeModal={() => setShowModal(false)}
+          provider={provider}
+          contractAddress={contractAddress}
           refreshAuctions={loadNFTDetails}
           minBid={minBid} // Pass dynamic minBid to the modal
         />

@@ -1,60 +1,83 @@
-'use client';
-import { useMetaMask } from './context/MetaMaskContext'; // Import MetaMaskContext hook
-import Link from 'next/link';
-import Profile from './components/Profile';
-import NFTGallery from './components/NftGallery'; // Keep NFTGallery for the home page
-import { shortenAddress } from './utils/shortenAddress';
+// HomePage.js
+"use client";
+import React from "react";
+import Link from "next/link";
+import Market from "./components/Market";
+import Auction from "./components/Auction";
+import CreatorsSection from "./components/CreatorsSection"; // Import the new CreatorsSection component
+import { useMetaMask } from "./context/MetaMaskContext";
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
-const Home = () => {
-  // Use MetaMaskContext hook to get MetaMask status and actions
-  const { isConnected, address, balance, connectMetaMask, provider } = useMetaMask();
+const HomePage = () => {
+  const { isConnected, address, provider, connectMetaMask } = useMetaMask();
 
-  // Check if MetaMask is connected, and render content accordingly
   if (!isConnected) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-white text-center mb-6">Welcome to the NFT Gallery</h1>
-        <div className="text-center text-gray-700">
-          <p className="text-1xl font-bold text-red-600 text-center mb-6">Please connect to MetaMask to see the content.</p>
-          <button
-            onClick={connectMetaMask}
-            className="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg"
-          >
-            Connect MetaMask
-          </button>
-        </div>
+      <div className="container mx-auto px-4 py-8 text-center">
+        <h1 className="text-3xl font-bold text-gray-100 mb-6">
+          Connect MetaMask to Explore NFTs
+        </h1>
+        <button
+          onClick={connectMetaMask}
+          className="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg"
+        >
+          Connect MetaMask
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Heading */}
-      <h1 className="text-3xl font-bold text-white text-center mb-6">Welcome to the NFT Gallery</h1>
+    <div className="bg-gray-900 text-white w-full">
+      {/* Welcome Banner Section */}
+      <section className="text-center py-16 bg-gradient-to-r from-blue-500 to-purple-600 w-full">
+        <h1 className="text-5xl font-bold mb-4">
+          Discover, Collect & Sell Rare Digital Artwork
+        </h1>
+        <p className="text-lg text-gray-200 mb-6">
+          Explore, place bids, and own unique digital assets on the blockchain.
+        </p>
+        <div className="flex justify-center space-x-4">
+          <Link
+            href="/auction"
+            className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold"
+          >
+            Place a Bid
+          </Link>
+          <Link
+            href="/market"
+            className="bg-white hover:bg-gray-100 text-blue-600 py-3 px-6 rounded-lg font-semibold"
+          >
+            View Artwork
+          </Link>
+        </div>
+      </section>
 
-      {/* Profile Section */}
-      <div className="mb-8">
-        <Profile currentAddress={shortenAddress(address)} balance={balance} />
-      </div>
+      {/* Market Section */}
+      <section className="w-full px-4 lg:px-16 py-16">
+        <Market
+          provider={provider}
+          contractAddress={contractAddress}
+          currentAddress={address}
+        />
+      </section>
 
-      {/* Upload Button */}
-      <div className="text-center mb-8">
-        <Link href="/upload">
-          <button className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">
-            Go to Upload Page
-          </button>
-        </Link>
-      </div>
+      {/* Auctions Section */}
+      <section className="bg-gray-800 py-16 w-full">
+        <Auction
+          provider={provider}
+          contractAddress={contractAddress}
+          currentAddress={address}
+        />
+      </section>
 
-      {/* NFT Gallery */}
-      <div className="mb-12">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-4">Your NFTs</h2>
-        <NFTGallery provider={provider} contractAddress={contractAddress} showSellButton={false} />
-      </div>
+      {/* Featured Creators Section */}
+      <section className="px-4 lg:px-16 py-16 w-full">
+        <CreatorsSection /> {/* Use the new CreatorsSection component */}
+      </section>
     </div>
   );
 };
 
-export default Home;
+export default HomePage;

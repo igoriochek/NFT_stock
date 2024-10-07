@@ -3,10 +3,33 @@ import { useMetaMask } from "../context/MetaMaskContext"; // Using MetaMask cont
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { shortenBalance } from "../utils/shortenBalance";
+import { db } from "../firebase"; // Firebase setup
+import { doc, getDoc } from "firebase/firestore"; // Firebase Firestore imports
 
 const Header = () => {
   const { username, isConnected, balance, address, connectMetaMask } = useMetaMask();
   const [showDropdown, setShowDropdown] = useState(false); // Dropdown toggle state
+  const [profilePicture, setProfilePicture] = useState("/images/default-avatar.png"); // Default profile picture
+
+  // Fetch the user's profile picture from Firebase when the address changes
+  useEffect(() => {
+    const fetchProfilePicture = async () => {
+      if (address) {
+        try {
+          const userRef = doc(db, "users", address);
+          const userDoc = await getDoc(userRef);
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setProfilePicture(data.profilePicture || "/images/default-avatar.png");
+          }
+        } catch (error) {
+          console.error("Error fetching profile picture:", error);
+        }
+      }
+    };
+
+    fetchProfilePicture();
+  }, [address]);
 
   const toggleDropdown = () => {
     setShowDropdown(!showDropdown);
@@ -17,6 +40,7 @@ const Header = () => {
       <div className="text-2xl font-bold">NFT Marketplace</div>
       <nav className="flex gap-4 items-center">
         <Link href="/" className="hover:text-accent">Home</Link>
+        <Link href="/creators" className="hover:text-accent">Creators</Link>
         <Link href="/market" className="hover:text-accent">Market</Link>
         <Link href="/auction" className="hover:text-accent">Auctions</Link>
 
@@ -33,9 +57,8 @@ const Header = () => {
               onClick={toggleDropdown} 
               className="flex items-center p-2 bg-red-800 hover:bg-blue-600 rounded-lg"
             >
-              {/* Profile picture or default avatar */}
               <img 
-                src="/default-avatar.png" // Replace with actual profile picture if available
+                src={profilePicture} // Use the fetched profile picture
                 alt="Profile"
                 className="w-8 h-8 rounded-full mr-2"
               />

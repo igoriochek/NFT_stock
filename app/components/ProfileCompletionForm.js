@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { doc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Import storage methods
-import { db, storage } from "../firebase"; // Import the initialized storage
-import { useSearchParams, useRouter } from "next/navigation"; // Import navigation utilities
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../firebase"; // Ensure that your firebase is set up correctly
+import { useSearchParams, useRouter } from "next/navigation";
 
 const ProfileCompletionForm = ({ address }) => {
   const [profileData, setProfileData] = useState({
@@ -11,13 +11,16 @@ const ProfileCompletionForm = ({ address }) => {
     lastName: "",
     profilePicture: "",
     likedArtworks: [],
-    following: [],
+    following: [],  // Array to track followed users
+    followers: [],  // Array to track the followers of the user
+    earnings: 0,    // Initialize earnings with 0
   });
 
-  const [file, setFile] = useState(null); // File state for the image
-  const searchParams = useSearchParams(); // Get query parameters
-  const router = useRouter(); // To programmatically redirect
-  const referrer = searchParams.get("referrer"); // Get the referrer page from query params
+  const [file, setFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(""); // For image preview
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const referrer = searchParams.get("referrer");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -27,10 +30,10 @@ const ProfileCompletionForm = ({ address }) => {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      setFile(selectedFile); // Set the file state
+      setFile(selectedFile);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfileData({ ...profileData, profilePicture: reader.result });
+        setFilePreview(reader.result); // Preview the selected image
       };
       reader.readAsDataURL(selectedFile);
     }
@@ -39,31 +42,32 @@ const ProfileCompletionForm = ({ address }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let profilePictureUrl = "/default-avatar.png"; // Default profile picture
+    let profilePictureUrl = "/images/default-avatar.png"; // Fallback to default picture
 
     try {
       if (file) {
-        // Upload the profile picture to Firebase Storage
-        const storageRef = ref(storage, `profilePictures/${address}_${file.name}`);
+        // Upload the selected profile picture to Firebase Storage
+        const storageRef = ref(storage, `profilePictures/${address}`); // Store image with wallet address as identifier
         const snapshot = await uploadBytes(storageRef, file);
-        profilePictureUrl = await getDownloadURL(snapshot.ref); // Get the download URL after upload
+        profilePictureUrl = await getDownloadURL(snapshot.ref); // Get the image URL from Firebase Storage
       }
 
-      const userRef = doc(db, "users", address);
+      // Save user profile data in Firestore
+      const userRef = doc(db, "users", address); // Use wallet address as the document ID
       await setDoc(userRef, {
         address,
-        username: profileData.username || "Anonymous", // Dummy username if skipped
+        username: profileData.username || "Anonymous",
         firstName: profileData.firstName || "",
         lastName: profileData.lastName || "",
-        profilePicture: profilePictureUrl, // Use the uploaded image URL or default
+        profilePicture: profilePictureUrl, // Save the uploaded image URL to Firestore
         likedArtworks: profileData.likedArtworks,
         following: profileData.following,
+        followers: profileData.followers,
+        earnings: 0, // Initialize earnings with 0
         createdAt: new Date(),
       });
 
       alert("Profile created successfully!");
-
-      // Redirect the user back to the referrer or home if no referrer
       if (referrer) {
         router.push(referrer);
       } else {
@@ -79,18 +83,18 @@ const ProfileCompletionForm = ({ address }) => {
       const userRef = doc(db, "users", address);
       await setDoc(userRef, {
         address,
-        username: "Annonymous", // Dummy username
+        username: "Anonymous",
         firstName: "",
         lastName: "",
-        profilePicture: "/default-avatar.png",
+        profilePicture: "/images/default-avatar.png", // Default avatar for skipped profile creation
         likedArtworks: [],
         following: [],
+        followers: [],
+        earnings: 0,
         createdAt: new Date(),
       });
 
       alert("Profile created with default values!");
-
-      // Redirect to the home page or referrer
       if (referrer) {
         router.push(referrer);
       } else {
@@ -138,8 +142,8 @@ const ProfileCompletionForm = ({ address }) => {
         <div>
           <label className="block text-sm font-medium">Profile Picture</label>
           <input type="file" onChange={handleFileChange} className="w-full text-gray-400" />
-          {profileData.profilePicture && (
-            <img src={profileData.profilePicture} alt="Profile Preview" className="mt-4 w-16 h-16 rounded-full" />
+          {filePreview && (
+            <img src={filePreview} alt="Profile Preview" className="mt-4 w-16 h-16 rounded-full" />
           )}
         </div>
         <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 p-2 rounded">
