@@ -91,7 +91,6 @@ const Upload = () => {
 
       alert("NFT Minted Successfully!");
 
-      
 
       refreshNFTs(); // Refresh the gallery after minting
 
@@ -144,9 +143,6 @@ const Upload = () => {
     await contract.listForSale(selectedTokenId, ethers.utils.parseEther(price));
     alert("NFT Listed for Sale!");
 
-    const nftRef = doc(db, "nfts", selectedTokenId.toString());
-    await setDoc(nftRef, { listed: true }, { merge: true });
-
     setShowSellModal(false);
     refreshNFTs();
   };
@@ -161,9 +157,6 @@ const Upload = () => {
     const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
     await contract.startAuction(selectedTokenId, duration);
     alert("Auction Started!");
-
-    const nftRef = doc(db, "nfts", selectedTokenId.toString());
-    await setDoc(nftRef, { auctionActive: true }, { merge: true });
 
     setShowAuctionModal(false);
     refreshNFTs();

@@ -70,27 +70,33 @@ const NFTDetail = () => {
         ArtNFT.abi,
         provider
       );
+
+      // Fetch all BidPlaced events
       const filter = contract.filters.BidPlaced();
       const events = await contract.queryFilter(filter);
 
+      // Filter only the bids related to the current NFT (by comparing tokenId)
       const bidHistory = await Promise.all(
-        events.map(async (event) => {
-          const bidder = event.args.bidder;
-          const bidderProfile = await getUserProfileByAddress(bidder);
-          const bidderName = bidderProfile?.username || shortenAddress(bidder); // Fetch username or fallback to address
+        events
+          .filter((event) => event.args.tokenId.toString() === id.toString()) // Filter by tokenId
+          .map(async (event) => {
+            const bidder = event.args.bidder;
+            const bidderProfile = await getUserProfileByAddress(bidder);
+            const bidderName =
+              bidderProfile?.username || shortenAddress(bidder);
 
-          // Get the block information using the block number
-          const block = await provider.getBlock(event.blockNumber);
-          const transactionDate = new Date(block.timestamp * 1000); // Convert to milliseconds and create a date object
+            // Get the block information using the block number
+            const block = await provider.getBlock(event.blockNumber);
+            const transactionDate = new Date(block.timestamp * 1000); // Convert to milliseconds and create a date object
 
-          return {
-            bidder: bidderName, // Store username or shortened address
-            amount: ethers.utils.formatUnits(event.args.amount, "ether"),
-            timestamp: event.blockNumber,
-            date: transactionDate.toLocaleDateString(), // Format the date
-            time: transactionDate.toLocaleTimeString(), // Format the time
-          };
-        })
+            return {
+              bidder: bidderName,
+              amount: ethers.utils.formatUnits(event.args.amount, "ether"),
+              timestamp: event.blockNumber,
+              date: transactionDate.toLocaleDateString(), // Format the date
+              time: transactionDate.toLocaleTimeString(), // Format the time
+            };
+          })
       );
 
       setBids(bidHistory);
@@ -101,8 +107,11 @@ const NFTDetail = () => {
 
   const listenForNewBids = () => {
     const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+
+    // Listen for bids only on the current NFT (filter by tokenId)
     contract.on("BidPlaced", (tokenId, bidder, amount) => {
-      if (tokenId.toString() === id) {
+      if (tokenId.toString() === id.toString()) {
+        // Ensure both are strings for comparison
         loadBidHistory();
       }
     });
@@ -259,15 +268,31 @@ const NFTDetail = () => {
           <div className="mt-4">
             <button
               className={`py-3 px-4 rounded-lg ${
-                isAuctionEnded
+                isAuctionEnded ||
+                nft.owner.toLowerCase() === address.toLowerCase() // Disable button if auction ended or user is the owner
                   ? "bg-gray-500 cursor-not-allowed"
                   : "bg-blue-500 hover:bg-blue-600"
               } text-white transition-all`}
-              onClick={() => !isAuctionEnded && setShowModal(true)}
-              disabled={isAuctionEnded}
-              title={isAuctionEnded ? "You cannot bid on ended auction" : ""}
+              onClick={() =>
+                !isAuctionEnded &&
+                nft.owner.toLowerCase() !== address.toLowerCase() &&
+                setShowModal(true)
+              } // Prevent click if auction ended or owner is trying to bid
+              disabled={
+                isAuctionEnded ||
+                nft.owner.toLowerCase() === address.toLowerCase()
+              } // Disable button
+              title={
+                isAuctionEnded
+                  ? "You cannot bid on ended auction"
+                  : nft.owner.toLowerCase() === address.toLowerCase()
+                  ? "You cannot bid on your own NFT"
+                  : ""
+              }
             >
-              Place a Bid
+              {nft.owner.toLowerCase() === address.toLowerCase()
+                ? "Owner cannot bid"
+                : "Place a Bid"}
             </button>
           </div>
         </div>

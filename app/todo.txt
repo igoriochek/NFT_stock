@@ -1,6 +1,6 @@
 NFTS:
-Fix bids history (Showing all bids instead of specific NFT)
-Fix bidding (Owner can bid on their own nft)
+Fix bids history (Showing all bids instead of specific NFT) +
+Fix bidding (Owner can bid on their own nft) +
 Fix Liked NFTS (Showing NFTCard as a market nft instead of auction)
 
 Creators:
