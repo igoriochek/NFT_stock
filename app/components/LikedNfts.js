@@ -57,13 +57,29 @@ const LikedNFTs = ({ provider, contractAddress, likedArtworks, currentAddress })
           const metadata = await response.json();
           console.log('Metadata from tokenURI:', metadata);
 
+          // Check if the NFT is part of an active auction
+          let isAuction = false;
+          let highestBid = null;
+          let endTime = null;
+          try {
+            const [active, highestBidder, highestBidValue, auctionEndTime] = await contract.getAuctionDetails(nftId);
+            isAuction = active;  // If the auction is active, mark it as auction
+            highestBid = highestBidValue;
+            endTime = auctionEndTime;
+          } catch (error) {
+            console.log(`No active auction for NFT ID: ${nftId}`);
+          }
+
           // Merge metadata from blockchain and Firebase
           likedNFTs.push({
             id: nftId,
             price: ethers.utils.formatUnits(price, 'ether'),
             owner,
             ...metadata,  // title, image, description
-            ...nftData    // likes data from Firebase
+            ...nftData,    // likes data from Firebase
+            isAuction,     // Include auction status
+            highestBid: isAuction ? highestBid : null,  // Include highest bid if auction
+            endTime: isAuction ? endTime : null         // Include auction end time if auction
           });
         } catch (error) {
           console.error('Error loading liked NFT:', error);
@@ -90,7 +106,7 @@ const LikedNFTs = ({ provider, contractAddress, likedArtworks, currentAddress })
               <NFTCard
                 nft={nft}
                 currentAddress={currentAddress}
-                isAuction={false}  // Assuming liked NFTs are not auctions
+                isAuction={nft.isAuction}  // Pass the auction status to NFTCard
               />
             </div>
           ))}
