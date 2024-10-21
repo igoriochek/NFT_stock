@@ -7,7 +7,7 @@ import { db } from "../firebase"; // Firebase setup
 import { doc, getDoc } from "firebase/firestore"; // Firebase Firestore imports
 
 const Header = () => {
-  const { username, isConnected, balance, address, connectMetaMask } = useMetaMask();
+  const { username, isConnected, balance, address, connectMetaMask, disconnectMetaMask } = useMetaMask();
   const [showDropdown, setShowDropdown] = useState(false); // Dropdown toggle state
   const [profilePicture, setProfilePicture] = useState("/images/default-avatar.png"); // Default profile picture
 
@@ -58,7 +58,7 @@ const Header = () => {
               className="flex items-center p-2 bg-red-800 hover:bg-blue-600 rounded-lg"
             >
               <img 
-                src={profilePicture} // Use the fetched profile picture
+                src={profilePicture} // Fetched profile picture
                 alt="Profile"
                 className="w-8 h-8 rounded-full mr-2"
               />
@@ -80,7 +80,9 @@ const Header = () => {
                   <li className="py-1 hover:bg-gray-200"><Link href="/profile">My Profile</Link></li>
                   <li className="py-1 hover:bg-gray-200"><Link href="/upload">My Items</Link></li>
                   <li className="py-1 hover:bg-gray-200"><Link href="/funds">Manage Funds</Link></li>
-                  <li className="py-1 hover:bg-gray-200"><button onClick={() => connectMetaMask()}>Disconnect</button></li>
+                  <li className="py-1 hover:bg-gray-200">
+                    <button onClick={disconnectMetaMask}>Disconnect</button>
+                  </li>
                 </ul>
               </div>
             )}

@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 import NFTCard from './NFTCard'; // Use the existing NFTCard component
 import { doc, getDoc } from "firebase/firestore"; 
 import { db } from '../firebase'; // Firebase initialization
-import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json'; // Import your contract's ABI
+import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 
 const LikedNFTs = ({ provider, contractAddress, likedArtworks, currentAddress }) => {
   const [likedNFTData, setLikedNFTData] = useState([]);
@@ -21,24 +21,24 @@ const LikedNFTs = ({ provider, contractAddress, likedArtworks, currentAddress })
   const loadLikedNFTs = async () => {
     setLoading(true);
     try {
-      console.log('Loading liked NFTs:', likedArtworks); // Check likedArtworks array
+      console.log('Loading liked NFTs:', likedArtworks);
 
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const likedNFTs = [];
 
       for (const nftId of likedArtworks) {
         try {
-          console.log('Fetching data for NFT ID:', nftId); // Check each NFT ID
+          console.log('Fetching data for NFT ID:', nftId);
 
-          // Fetch metadata from Firebase
-          const nftDoc = await getDoc(doc(db, 'nfts', nftId));
-          if (!nftDoc.exists()) {
+          // Fetch like data from `nftLikes` document instead of `nfts` collection
+          const nftLikesDoc = await getDoc(doc(db, 'nftLikes', nftId));
+          if (!nftLikesDoc.exists()) {
             console.error('NFT not found in Firebase:', nftId);
             continue;
           }
 
-          let nftData = { id: nftId, ...nftDoc.data() };
-          console.log('Firebase Data for NFT:', nftData);
+          let nftLikeData = { id: nftId, ...nftLikesDoc.data() };
+          console.log('Firebase Likes Data for NFT:', nftLikeData);
 
           // Fetch on-chain data
           const tokenURI = await contract.tokenURI(nftId);
@@ -76,7 +76,7 @@ const LikedNFTs = ({ provider, contractAddress, likedArtworks, currentAddress })
             price: ethers.utils.formatUnits(price, 'ether'),
             owner,
             ...metadata,  // title, image, description
-            ...nftData,    // likes data from Firebase
+            ...nftLikeData,    // likes data from Firebase
             isAuction,     // Include auction status
             highestBid: isAuction ? highestBid : null,  // Include highest bid if auction
             endTime: isAuction ? endTime : null         // Include auction end time if auction

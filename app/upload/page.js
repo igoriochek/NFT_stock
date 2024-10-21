@@ -6,8 +6,7 @@ import { useMetaMask } from "../context/MetaMaskContext";
 import NFTGallery from "../components/NftGallery";
 import SellModal from "../modals/SellModal";
 import AuctionModal from "../modals/AuctionModal";
-import { db } from "../firebase";
-import { doc, setDoc } from "firebase/firestore";
+
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;

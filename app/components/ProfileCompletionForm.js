@@ -9,6 +9,7 @@ const ProfileCompletionForm = ({ address }) => {
     username: "",
     firstName: "",
     lastName: "",
+    bio: "", // Add bio field here
     profilePicture: "",
     likedArtworks: [],
     following: [],  // Array to track followed users
@@ -59,6 +60,7 @@ const ProfileCompletionForm = ({ address }) => {
         username: profileData.username || "Anonymous",
         firstName: profileData.firstName || "",
         lastName: profileData.lastName || "",
+        bio: profileData.bio || "", // Save the bio field in Firestore
         profilePicture: profilePictureUrl, // Save the uploaded image URL to Firestore
         likedArtworks: profileData.likedArtworks,
         following: profileData.following,
@@ -86,6 +88,7 @@ const ProfileCompletionForm = ({ address }) => {
         username: "Anonymous",
         firstName: "",
         lastName: "",
+        bio: "", // Add default bio
         profilePicture: "/images/default-avatar.png", // Default avatar for skipped profile creation
         likedArtworks: [],
         following: [],
@@ -137,6 +140,16 @@ const ProfileCompletionForm = ({ address }) => {
             value={profileData.lastName}
             onChange={handleChange}
             className="w-full p-2 bg-gray-700 border border-gray-600 rounded"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Bio</label>
+          <textarea
+            name="bio"
+            value={profileData.bio}
+            onChange={handleChange}
+            className="w-full p-2 bg-gray-700 border border-gray-600 rounded"
+            placeholder="Tell something about yourself"
           />
         </div>
         <div>

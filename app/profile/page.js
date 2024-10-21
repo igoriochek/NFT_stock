@@ -1,12 +1,10 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, storage } from "../firebase"; // Firebase initialization
 import { useMetaMask } from "../context/MetaMaskContext"; // MetaMask context for user info
 import LikedNFTs from '../components/LikedNfts'; // Import the LikedNFTs component
-import Link from 'next/link'; // Import Link for profile redirection
-import { shortenBalance } from '../utils/shortenBalance'; // For balance formatting
-import { ethers } from 'ethers'; // For balance fetching
+import CreatorsSection from '../components/CreatorsSection'; // Reuse the CreatorsSection component
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Firebase storage
 
 const ProfilePage = () => {
@@ -15,13 +13,12 @@ const ProfilePage = () => {
     username: "",
     firstName: "",
     lastName: "",
-    profilePicture: "public\images\default-avatar.png",
+    bio: "", // Add bio field
+    profilePicture: "/images/default-avatar.png",
     likedArtworks: [],
     followers: [],
     following: [], // New fields to track followers and following
   });
-  const [followedCreators, setFollowedCreators] = useState([]); // State to store followed creators
-  const [balances, setBalances] = useState({}); // State to store user balances
   const [editing, setEditing] = useState(false); // State to toggle edit mode
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState(null); // File for uploading new profile picture
@@ -35,19 +32,12 @@ const ProfilePage = () => {
       setLoading(true);
 
       try {
+        // Fetch user profile data, including likedArtworks and bio from Firebase
         const userRef = doc(db, "users", currentAddress);
         const userDoc = await getDoc(userRef);
         if (userDoc.exists()) {
           const data = userDoc.data();
-          setProfileData((prev) => ({
-            ...prev,
-            ...data,
-          }));
-
-          // Fetch followed users (creators) data
-          if (data.following?.length) {
-            await loadFollowedCreators(data.following);
-          }
+          setProfileData(data);
         } else {
           console.error("User profile does not exist");
         }
@@ -55,41 +45,6 @@ const ProfilePage = () => {
         console.error("Error loading profile:", error);
       }
       setLoading(false);
-    };
-
-    const loadFollowedCreators = async (followingList) => {
-      try {
-        const usersQuery = query(collection(db, "users"), where("address", "in", followingList));
-        const querySnapshot = await getDocs(usersQuery);
-        const followedCreatorsData = querySnapshot.docs.map((doc) => doc.data());
-        setFollowedCreators(followedCreatorsData);
-
-        // Fetch balance for each followed creator
-        await fetchBalances(followedCreatorsData);
-      } catch (error) {
-        console.error("Error fetching followed creators:", error);
-      }
-    };
-
-    const fetchBalances = async (creators) => {
-      if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const newBalances = {};
-
-        for (const creator of creators) {
-          if (creator.address) {
-            try {
-              const balance = await provider.getBalance(creator.address);
-              newBalances[creator.address] = ethers.utils.formatEther(balance); // Store balance in ETH format
-            } catch (error) {
-              console.error(`Error fetching balance for ${creator.address}:`, error);
-              newBalances[creator.address] = '0'; // Fallback to 0 if an error occurs
-            }
-          }
-        }
-
-        setBalances(newBalances); // Update state with all balances
-      }
     };
 
     loadProfile();
@@ -111,7 +66,7 @@ const ProfilePage = () => {
     }
   };
 
-  // Save changes to Firebase, including uploading the profile picture
+  // Save changes to Firebase, including uploading the profile picture and updating the bio
   const handleSave = async () => {
     if (!currentAddress) return;
 
@@ -127,11 +82,12 @@ const ProfilePage = () => {
 
       const userRef = doc(db, "users", currentAddress);
 
-      // Update the user's profile in Firebase
+      // Update the user's profile in Firebase, including bio and profile picture
       await updateDoc(userRef, {
         username: profileData.username,
         firstName: profileData.firstName,
         lastName: profileData.lastName,
+        bio: profileData.bio, // Save the bio to Firestore
         profilePicture: profilePictureUrl,
       });
 
@@ -147,7 +103,7 @@ const ProfilePage = () => {
 
   return (
     <div className="container mx-auto p-8 bg-gray-900 text-white">
-      <h1 className="text-3xl font-bold text-center mb-6">My Profile</h1>
+      <h1 className="text-3xl font-bold text-center text-white mb-6">My Profile</h1>
 
       <div className="bg-gray-800 p-6 rounded-lg shadow-md max-w-6xl mx-auto">
         <div className="flex flex-col items-center">
@@ -206,6 +162,21 @@ const ProfilePage = () => {
             )}
           </div>
 
+          <div>
+            <label className="block text-gray-300">Bio</label> {/* Bio Field */}
+            {editing ? (
+              <textarea
+                name="bio"
+                value={profileData.bio}
+                onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md"
+                placeholder="Tell something about yourself"
+              />
+            ) : (
+              <p>{profileData.bio || "No bio provided."}</p>
+            )}
+          </div>
+
           {editing && (
             <div>
               <label className="block text-gray-300">Profile Picture</label>
@@ -239,38 +210,14 @@ const ProfilePage = () => {
       {/* Followed Creators Section */}
       <div className="mt-6 bg-gray-700 p-6 rounded-lg shadow-md">
         <h2 className="text-xl font-bold mb-4">Following: {profileData.following.length}</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {followedCreators.map((creator, index) => (
-            <div
-              key={index}
-              className="bg-white shadow-lg rounded-lg p-4 flex flex-col items-center text-gray-800"
-            >
-              <Link href={`/creators/${creator.address}`} passHref>
-                <img
-                  src={creator.profilePicture || "https://via.placeholder.com/72x72"}
-                  alt={creator.username}
-                  className="w-18 h-18 rounded-full mb-2 cursor-pointer"
-                />
-              </Link>
-              <Link href={`/creators/${creator.address}`} passHref>
-                <h3 className="text-lg font-semibold hover:underline cursor-pointer">
-                  {creator.username}
-                </h3>
-              </Link>
-              <p className="text-gray-500">{creator.followers?.length || 0} Followers</p>
-              <p className="text-gray-600">
-                {shortenBalance(balances[creator.address]) ? `${shortenBalance(balances[creator.address])} ETH` : "Balance not available"}
-              </p>
-            </div>
-          ))}
-        </div>
+        <CreatorsSection followingList={profileData.following} /> {/* Use the reusable component */}
       </div>
 
       {/* Liked NFTs Section */}
       <div className="mt-10">
         <LikedNFTs
-          provider={metaMaskProvider} // Use the provider from MetaMask context
-          contractAddress={contractAddress} // Ensure contractAddress is passed
+          provider={metaMaskProvider}
+          contractAddress={contractAddress}
           likedArtworks={profileData.likedArtworks}
           currentAddress={currentAddress}
         />

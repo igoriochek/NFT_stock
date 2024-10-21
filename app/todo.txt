@@ -1,16 +1,16 @@
 NFTS:
 Fix bids history (Showing all bids instead of specific NFT) +
 Fix bidding (Owner can bid on their own nft) +
-Fix Liked NFTS (Showing NFTCard as a market nft instead of auction)
+Fix Liked NFTS (Showing NFTCard as a market nft instead of auction) +
 
 Creators:
 Design creators and detailed creator pages and cards
-Add Artworks to creator page 
-Add exception not allowing to follow yourself
-*Add bio field to profile data
+Add Artworks to creator page +
+Add exception not allowing to follow yourself +
+*Add bio field to profile data +
 
 System:
-Add functionality to disconnect from metamask account
+Add functionality to disconnect from metamask account +
 
 Firebase:
-Delete userLikes in NFTlikes document
+Delete userLikes in NFTlikes document +

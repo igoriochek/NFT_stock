@@ -1,16 +1,29 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore"; // Firestore methods
+import { doc, getDoc, arrayUnion, arrayRemove } from "firebase/firestore"; // Firestore methods
 import { db } from "../../firebase"; // Firebase initialization
 import { useMetaMask } from "@/app/context/MetaMaskContext"; // MetaMask context for the current user's address
+import NFTCard from "@/app/components/NFTCard"; // Import the NFTCard component
+import { ethers } from "ethers";
+import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
+import { getUserProfileByAddress } from "@/app/utils/firebaseUtils"; // Firebase utility for user profiles
 
 const UserProfile = ({ params }) => {
   const { address } = params; // Get the wallet address from the URL (params for Next.js 13+)
-  const [userData, setUserData] = useState(null);
+  const [userData, setUserData] = useState({
+    username: "",
+    firstName: "",
+    lastName: "",
+    bio: "",
+    profilePicture: "/images/default-avatar.png",
+    followers: [],
+    earnings: "0",
+  });
   const [loading, setLoading] = useState(true);
+  const [nfts, setNfts] = useState([]); // To store listed or auction NFTs
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
-  const { address: currentAddress } = useMetaMask(); // Get the current user's address from MetaMask context
+  const { address: currentAddress, provider } = useMetaMask(); // Get the current user's address from MetaMask context
 
   // Fetch user profile data
   useEffect(() => {
@@ -38,9 +51,81 @@ const UserProfile = ({ params }) => {
     fetchUserData();
   }, [address, currentAddress]);
 
+  // Fetch listed and auctioned NFTs and user profile data from Firebase
+  useEffect(() => {
+    const fetchListedOrAuctionNFTs = async () => {
+      if (!provider) return;
+  
+      try {
+        const contract = new ethers.Contract(
+          process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
+          ArtNFT.abi,
+          provider
+        );
+        const totalSupply = await contract.tokenCount();
+        const listedNFTs = [];
+  
+        for (let i = 1; i <= totalSupply; i++) {
+          try {
+            const owner = await contract.ownerOf(i);
+            if (owner.toLowerCase() === address.toLowerCase()) {
+              const tokenURI = await contract.tokenURI(i);
+              const price = await contract.getPrice(i);
+              const response = await fetch(tokenURI);
+              if (!response.ok) {
+                console.error(`Failed to fetch metadata for token ${i}`);
+                continue;
+              }
+              const metadata = await response.json();
+  
+              // Fetch the owner's profile from Firebase
+              const ownerProfile = await getUserProfileByAddress(owner);
+              const ownerUsername = ownerProfile?.username || "Anonymous";
+              const ownerProfilePicture = ownerProfile?.profilePicture || "/images/default-avatar.png";
+  
+              // Check for auction details
+              let isAuction = false;
+              let highestBid = ethers.BigNumber.from(0); // Initialize as BigNumber with value 0
+              let endTime = null;
+              try {
+                const [active, highestBidder, highestBidValue, auctionEndTime] = await contract.getAuctionDetails(i);
+                isAuction = active;
+                highestBid = highestBidValue; // Ensure this is a BigNumber object
+                endTime = auctionEndTime;
+              } catch (error) {
+                console.log(`No active auction for NFT ID: ${i}`);
+              }
+  
+              // Push the NFT data to the listedNFTs array
+              listedNFTs.push({
+                id: i,
+                metadata,
+                price: ethers.utils.formatUnits(price, "ether"), // Format price as a string
+                highestBid: isAuction ? highestBid : ethers.BigNumber.from(0), // Keep as BigNumber
+                auctionActive: isAuction,
+                endTime: isAuction ? endTime : null,
+                ownerUsername, // Firebase data
+                ownerProfilePicture, // Firebase data
+              });
+            }
+          } catch (error) {
+            console.error(`Error fetching data for NFT ID ${i}:`, error);
+          }
+        }
+  
+        setNfts(listedNFTs);
+      } catch (error) {
+        console.error("Error fetching NFTs:", error);
+      }
+    };
+  
+    fetchListedOrAuctionNFTs();
+  }, [address, provider]);
+  
+
   // Handle Follow/Unfollow action
   const handleFollowToggle = async () => {
-    if (!currentAddress || !address || currentAddress === address) return;
+    if (!currentAddress || !address || currentAddress === address) return; // Prevent following oneself
 
     try {
       const currentUserRef = doc(db, "users", currentAddress);
@@ -79,6 +164,7 @@ const UserProfile = ({ params }) => {
   return (
     <div className="container mx-auto p-8">
       <div className="flex flex-col md:flex-row bg-white shadow-lg rounded-lg p-6">
+        {/* Profile Section */}
         <div className="w-full md:w-1/3 text-center">
           <img
             src={userData.profilePicture || "https://via.placeholder.com/72"}
@@ -105,18 +191,26 @@ const UserProfile = ({ params }) => {
           </div>
 
           {/* Follow/Unfollow button */}
-          <button
-            onClick={handleFollowToggle}
-            className={`mt-4 py-2 px-4 rounded ${
-              isFollowing
-                ? "bg-gray-500 text-white hover:bg-gray-600"
-                : "bg-blue-500 text-white hover:bg-blue-600"
-            }`}
-          >
-            {isFollowing ? "Unfollow" : "Follow"}
-          </button>
+          {currentAddress !== address && (
+            <button
+              onClick={handleFollowToggle}
+              className={`mt-4 py-2 px-4 rounded ${
+                isFollowing
+                  ? "bg-gray-500 text-white hover:bg-gray-600"
+                  : "bg-blue-500 text-white hover:bg-blue-600"
+              }`}
+            >
+              {isFollowing ? "Unfollow" : "Follow"}
+            </button>
+          )}
+
+          {/* If the user is viewing their own profile, show a message instead */}
+          {currentAddress === address && (
+            <p className="mt-4 text-gray-500">You cannot follow yourself.</p>
+          )}
         </div>
 
+        {/* About and NFT Section */}
         <div className="w-full md:w-2/3 mt-8 md:mt-0 md:ml-8">
           <h2 className="text-2xl font-bold text-gray-800">About Me</h2>
           <p className="mt-4 text-gray-600">
@@ -124,11 +218,35 @@ const UserProfile = ({ params }) => {
           </p>
 
           <div className="mt-8">
-            <h2 className="text-2xl font-bold text-gray-800">Artworks</h2>
-            {/* Add logic here to display the user's artworks */}
-            <p className="text-gray-600">
-              This section can display the NFTs or artwork associated with the user.
-            </p>
+            <h2 className="text-2xl font-bold text-gray-800">Listed and Auctioned Artworks</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-6 mt-4">
+              {nfts.length > 0 ? (
+                nfts.map((nft) => (
+                  <NFTCard
+                    key={nft.id}
+                    nft={{
+                      id: nft.id,
+                      title: nft.metadata.title,
+                      description: nft.metadata.description,
+                      image: nft.metadata.image,
+                      price: nft.price,
+                      highestBid: nft.highestBid,
+                      listed: nft.listed,
+                      auctionActive: nft.auctionActive,
+                      endTime: nft.endTime,
+                      owner: address, // Pass owner wallet address
+                      ownerUsername: nft.ownerUsername, // Firebase data
+                      ownerProfilePicture: nft.ownerProfilePicture, // Firebase data
+                    }}
+                    currentAddress={currentAddress}
+                    isAuction={nft.auctionActive}
+                    onBuy={() => {}}
+                  />
+                ))
+              ) : (
+                <p className="text-gray-600">No listed or auctioned NFTs.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>

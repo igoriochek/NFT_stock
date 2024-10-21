@@ -1,21 +1,29 @@
-
 "use client";
 import React, { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 import Link from "next/link";
 import { ethers } from "ethers";
 import { shortenBalance } from "../utils/shortenBalance";
 
-const CreatorsSection = () => {
+const CreatorsSection = ({ followingList }) => {
   const [creators, setCreators] = useState([]);
   const [balances, setBalances] = useState({});
 
   useEffect(() => {
     const fetchCreators = async () => {
       try {
+        // Check if we need to filter by following list or show all users
         const usersCollection = collection(db, "users");
-        const userDocs = await getDocs(usersCollection);
+        let userQuery;
+
+        if (followingList && followingList.length > 0) {
+          userQuery = query(usersCollection, where("address", "in", followingList));
+        } else {
+          userQuery = usersCollection;
+        }
+
+        const userDocs = await getDocs(userQuery);
         const usersData = userDocs.docs.map((doc) => doc.data());
         setCreators(usersData);
 
@@ -42,11 +50,13 @@ const CreatorsSection = () => {
     };
 
     fetchCreators();
-  }, []);
+  }, [followingList]);
 
   return (
     <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold text-center mb-6">Featured Creators</h1>
+      <h1 className="text-3xl font-bold text-center text-white mb-6">
+        {followingList && followingList.length > 0 ? "Following Creators" : "All Creators"}
+      </h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {creators.map((creator, index) => (
           <div

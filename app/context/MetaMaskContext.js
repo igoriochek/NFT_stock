@@ -14,7 +14,7 @@ export const MetaMaskProvider = ({ children }) => {
   const [balance, setBalance] = useState(null); // Store balance
   const [isConnected, setIsConnected] = useState(false);
   const [username, setUsername] = useState(null);
-  const [profilePicture, setProfilePicture] = useState("/default-avatar.png");
+  const [profilePicture, setProfilePicture] = useState("/images/default-avatar.png");
   const [likedArtworks, setLikedArtworks] = useState([]);
   const [following, setFollowing] = useState([]);
   const router = useRouter(); // Initialize router for redirection
@@ -40,7 +40,7 @@ export const MetaMaskProvider = ({ children }) => {
         if (userSnap.exists()) {
           const userProfile = userSnap.data();
           setUsername(userProfile.username);
-          setProfilePicture(userProfile.profilePicture || "/default-avatar.png");
+          setProfilePicture(userProfile.profilePicture || "/images/default-avatar.png");
           setLikedArtworks(userProfile.likedArtworks || []);
           setFollowing(userProfile.following || []);
         } else {
@@ -53,6 +53,19 @@ export const MetaMaskProvider = ({ children }) => {
     } else {
       console.error("MetaMask is not installed.");
     }
+  };
+
+  const disconnectMetaMask = () => {
+    // Clear the app's state
+    setProvider(null);
+    setAddress(null);
+    setBalance(null);
+    setUsername(null);
+    setProfilePicture("/images/default-avatar.png");
+    setIsConnected(false);
+    
+    // Optionally reload the page to clear any cached state
+    window.location.reload();
   };
 
   useEffect(() => {
@@ -77,7 +90,7 @@ export const MetaMaskProvider = ({ children }) => {
           if (userSnap.exists()) {
             const userProfile = userSnap.data();
             setUsername(userProfile.username);
-            setProfilePicture(userProfile.profilePicture || "/default-avatar.png");
+            setProfilePicture(userProfile.profilePicture || "/images/default-avatar.png");
             setLikedArtworks(userProfile.likedArtworks || []);
             setFollowing(userProfile.following || []);
           } else {
@@ -92,7 +105,7 @@ export const MetaMaskProvider = ({ children }) => {
   }, []);
 
   return (
-    <MetaMaskContext.Provider value={{ address, username, isConnected, balance, profilePicture, likedArtworks, following, connectMetaMask, provider }}>
+    <MetaMaskContext.Provider value={{ address, username, isConnected, balance, profilePicture, likedArtworks, following, connectMetaMask, disconnectMetaMask, provider }}>
       {children}
     </MetaMaskContext.Provider>
   );
