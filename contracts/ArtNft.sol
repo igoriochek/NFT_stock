@@ -17,7 +17,7 @@ contract ArtNFT is ERC721URIStorage, Ownable {
     }
 
     mapping(uint256 => Auction) public auctions;
-
+    mapping(uint256 => string[]) public nftCategories;
     event NFTMinted(address owner, uint256 tokenId, string tokenURI);
     event NFTListed(uint256 tokenId, uint256 price);
     event NFTBought(address buyer, uint256 tokenId, uint256 price);
@@ -53,6 +53,10 @@ contract ArtNFT is ERC721URIStorage, Ownable {
         prices[tokenId] = 0;
 
         emit NFTBought(msg.sender, tokenId, msg.value);
+    }
+
+    function getCategories(uint256 tokenId) external view returns (string[] memory) {
+        return nftCategories[tokenId];
     }
 
     function startAuction(uint256 tokenId, uint256 duration) external {

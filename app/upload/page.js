@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { ethers } from "ethers";
@@ -16,13 +16,18 @@ const pinataJwt = process.env.NEXT_PUBLIC_PINATA_JWT;
 const Upload = () => {
   const [formInput, setFormInput] = useState({ title: "", description: "" });
   const [fileUrl, setFileUrl] = useState(null);
-  const [ipfsHash, setIpfsHash] = useState(null);
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const [showSellModal, setShowSellModal] = useState(false);
   const [showAuctionModal, setShowAuctionModal] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState(null);
   const [nfts, setNfts] = useState([]);
 
-  const { isConnected, provider, address: currentAddress, connectMetaMask } = useMetaMask();
+  const {
+    isConnected,
+    provider,
+    address: currentAddress,
+    connectMetaMask,
+  } = useMetaMask();
 
   // Function to handle file upload to Pinata (IPFS)
   const onChange = async (e) => {
@@ -43,18 +48,36 @@ const Upload = () => {
       const url = `https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}`;
       setFileUrl(url);
     } catch (error) {
-      console.log("Error uploading file: ", error);
+      console.error("Error uploading file:", error);
+    }
+  };
+
+  // Function to handle category selection
+  const handleCategoryChange = (category, isChecked) => {
+    if (isChecked) {
+      setSelectedCategories([...selectedCategories, category]);
+    } else {
+      setSelectedCategories(
+        selectedCategories.filter((item) => item !== category)
+      );
     }
   };
 
   // Function to mint the NFT and create a Firebase document
   const uploadAndMint = async () => {
     const { title, description } = formInput;
-    if (!title || !description || !fileUrl) return;
+    if (!title || !description || !fileUrl || selectedCategories.length === 0)
+      return;
 
     const data = {
       pinataMetadata: { name: title },
-      pinataContent: { title, description, image: fileUrl, creator: currentAddress },
+      pinataContent: {
+        title,
+        description,
+        image: fileUrl,
+        creator: currentAddress,
+        categories: selectedCategories,
+      },
     };
 
     try {
@@ -69,7 +92,6 @@ const Upload = () => {
         }
       );
       const url = `https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}`;
-      setIpfsHash(url);
 
       if (!provider) {
         alert("Please connect to MetaMask first.");
@@ -84,31 +106,31 @@ const Upload = () => {
 
       const signer = provider.getSigner();
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-      let transaction = await contract.mint(url); // Mint the NFT with the IPFS URL
-      const receipt = await transaction.wait(); // Wait for transaction to complete
-      const tokenId = receipt.events[0].args.tokenId.toString(); // Get tokenId from event
+      let transaction = await contract.mint(url);
+      await transaction.wait();
 
       alert("NFT Minted Successfully!");
-
-
-      refreshNFTs(); // Refresh the gallery after minting
-
+      refreshNFTs();
     } catch (error) {
       console.error("Error uploading or minting:", error);
       alert(`Error: ${error.message}`);
     }
   };
 
-  // Function to refresh the NFTs for the current user
+  // Function to refresh NFTs
   const refreshNFTs = async () => {
     try {
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+      const contract = new ethers.Contract(
+        contractAddress,
+        ArtNFT.abi,
+        provider
+      );
       const totalSupply = await contract.tokenCount();
       const items = [];
 
       for (let i = 1; i <= totalSupply; i++) {
-        const owner = await contract.ownerOf(i); // Fetch the owner of the token
-        if (owner.toLowerCase() === currentAddress.toLowerCase()) { // Only display NFTs owned by the current user
+        const owner = await contract.ownerOf(i);
+        if (owner.toLowerCase() === currentAddress.toLowerCase()) {
           const tokenURI = await contract.tokenURI(i);
           const listed = await contract.listedTokens(i);
           const [auctionActive] = await contract.getAuctionDetails(i);
@@ -161,16 +183,6 @@ const Upload = () => {
     refreshNFTs();
   };
 
-  const handleSellClick = (tokenId) => {
-    setSelectedTokenId(tokenId);
-    setShowSellModal(true);
-  };
-
-  const handleAuctionClick = (tokenId) => {
-    setSelectedTokenId(tokenId);
-    setShowAuctionModal(true);
-  };
-
   if (!isConnected) {
     return (
       <div className="container mx-auto px-4 py-8 text-center text-white">
@@ -202,8 +214,10 @@ const Upload = () => {
               id="title"
               type="text"
               placeholder="NFT Title"
-              className="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-md focus:outline-none focus:ring focus:border-blue-400"
-              onChange={(e) => setFormInput({ ...formInput, title: e.target.value })}
+              className="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-md"
+              onChange={(e) =>
+                setFormInput({ ...formInput, title: e.target.value })
+              }
             />
           </div>
 
@@ -214,8 +228,10 @@ const Upload = () => {
             <textarea
               id="description"
               placeholder="NFT Description"
-              className="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-md focus:outline-none focus:ring focus:border-blue-400"
-              onChange={(e) => setFormInput({ ...formInput, description: e.target.value })}
+              className="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-md"
+              onChange={(e) =>
+                setFormInput({ ...formInput, description: e.target.value })
+              }
             ></textarea>
           </div>
 
@@ -226,14 +242,47 @@ const Upload = () => {
             <input
               id="file"
               type="file"
-              className="w-full text-gray-400 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring focus:border-blue-400"
+              className="w-full text-gray-400"
               onChange={onChange}
             />
           </div>
 
+          <div>
+  <label className="block text-gray-300 mb-2">Select Categories</label>
+  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+    {[
+      "Photography",
+      "Painting",
+      "Sculpture",
+      "Digital Art",
+      "Portrait",
+      "Animal",
+      "Plant",
+      "Vehicle",
+      "Landscape",
+    ].map((category, index) => (
+      <label
+        key={index}
+        className="flex items-center space-x-2 text-gray-300 bg-gray-700 py-3 px-3 rounded-lg hover:bg-gray-600 transition"
+      >
+        <input
+          type="checkbox"
+          value={category}
+          className="form-checkbox h-4 w-4 text-blue-600 focus:ring focus:ring-blue-500 rounded"
+          style={{ margin: 0 }}
+          onChange={(e) =>
+            handleCategoryChange(category, e.target.checked)
+          }
+        />
+        <span className="text-sm leading-none">{category}</span>
+      </label>
+    ))}
+  </div>
+</div>
+
           <button
             onClick={uploadAndMint}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-300"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg"
           >
             Upload and Mint NFT
           </button>
@@ -249,8 +298,14 @@ const Upload = () => {
           contractAddress={contractAddress}
           ownerAddress={currentAddress}
           showSellButton={true}
-          onSell={handleSellClick}
-          onAuction={handleAuctionClick}
+          onSell={(tokenId) => {
+            setSelectedTokenId(tokenId);
+            setShowSellModal(true);
+          }}
+          onAuction={(tokenId) => {
+            setSelectedTokenId(tokenId);
+            setShowAuctionModal(true);
+          }}
           nfts={nfts}
           refreshNFTs={refreshNFTs}
         />

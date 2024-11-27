@@ -1,11 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import NFTCard from './NFTCard'; // Import the NFTCard component
+import NFTCard from './NFTCard';
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 
 const Market = ({ provider, contractAddress, currentAddress }) => {
   const [listedNFTs, setListedNFTs] = useState([]);
+  const [filteredNFTs, setFilteredNFTs] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
 
   useEffect(() => {
     if (provider) {
@@ -13,22 +16,31 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
     }
   }, [provider]);
 
+  useEffect(() => {
+    if (selectedCategories.length === 0) {
+      setFilteredNFTs(listedNFTs);
+    } else {
+      const filtered = listedNFTs.filter((nft) =>
+        nft.categories.some((cat) => selectedCategories.includes(cat))
+      );
+      setFilteredNFTs(filtered);
+    }
+  }, [selectedCategories, listedNFTs]);
+
   const loadListedNFTs = async () => {
     try {
       if (!provider) return;
 
-      const signer = provider.getSigner();
-      const address = await signer.getAddress();
-      
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const listedTokens = await contract.getListedTokens();
-
       const items = [];
+
       for (let i = 0; i < listedTokens.length; i++) {
         const tokenId = listedTokens[i];
         const tokenURI = await contract.tokenURI(tokenId);
         const price = await contract.getPrice(tokenId);
         const owner = await contract.ownerOf(tokenId);
+        const categories = await contract.getCategories(tokenId);
 
         const response = await fetch(tokenURI);
         if (!response.ok) {
@@ -40,56 +52,68 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
           id: tokenId,
           price: ethers.utils.formatUnits(price, 'ether'),
           owner,
+          categories,
           ...metadata,
         });
       }
 
+      const uniqueCategories = Array.from(
+        new Set(items.flatMap((nft) => nft.categories))
+      );
+      setCategories(uniqueCategories);
       setListedNFTs(items);
     } catch (error) {
       console.error('Error loading listed NFTs:', error);
     }
   };
 
-  const buyNFT = async (nft) => {
-    if (nft.owner.toLowerCase() === currentAddress.toLowerCase()) {
-      alert('You cannot buy your own NFT.');
-      return;
-    }
-
-    try {
-      const signer = provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-
-      const transaction = await contract.buy(nft.id, {
-        value: ethers.utils.parseUnits(nft.price, 'ether'),
-      });
-      await transaction.wait();
-
-      alert('NFT bought successfully!');
-      loadListedNFTs();
-    } catch (error) {
-      console.error('Error buying NFT:', error);
-      alert(`Error: ${error.message}`);
-    }
+  const toggleCategory = (category) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((cat) => cat !== category)
+        : [...prev, category]
+    );
   };
 
   return (
     <div className="container mx-auto px-8 lg:px-16">
       <h1 className="text-5xl font-bold text-gray-100 text-center my-8 shadow-md">Market</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-10">
-        {listedNFTs.length > 0 ? (
-          listedNFTs.map((nft) => (
+
+      {/* Category Filter */}
+      <div className="bg-gray-800 p-4 rounded-lg shadow-md mb-8">
+        <h2 className="text-lg font-bold text-gray-300 mb-4">Filter by Categories</h2>
+        <div className="flex flex-wrap gap-4">
+          {categories.map((category, index) => (
+            <button
+              key={index}
+              className={`px-4 py-2 rounded-lg border ${
+                selectedCategories.includes(category)
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300'
+              }`}
+              onClick={() => toggleCategory(category)}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* NFT Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+        {filteredNFTs.length > 0 ? (
+          filteredNFTs.map((nft) => (
             <div key={nft.id} className="flex justify-center">
               <NFTCard
                 nft={nft}
-                currentAddress={currentAddress} // Ensure currentAddress is passed here
-                onBuy={buyNFT}
+                currentAddress={currentAddress}
+                onBuy={() => {}}
                 isAuction={false}
               />
             </div>
           ))
         ) : (
-          <p className="text-center col-span-full text-gray-400">No NFTs for sale.</p>
+          <p className="text-center col-span-full text-gray-400">No NFTs matching the selected filters.</p>
         )}
       </div>
     </div>

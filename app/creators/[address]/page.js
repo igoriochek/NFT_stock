@@ -1,15 +1,17 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { doc, getDoc, arrayUnion, arrayRemove } from "firebase/firestore"; // Firestore methods
+import { doc, getDoc, arrayUnion, arrayRemove, updateDoc } from "firebase/firestore"; // Firestore methods
 import { db } from "../../firebase"; // Firebase initialization
 import { useMetaMask } from "@/app/context/MetaMaskContext"; // MetaMask context for the current user's address
 import NFTCard from "@/app/components/NFTCard"; // Import the NFTCard component
 import { ethers } from "ethers";
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 import { getUserProfileByAddress } from "@/app/utils/firebaseUtils"; // Firebase utility for user profiles
+import { useRouter } from 'next/navigation';
 
 const UserProfile = ({ params }) => {
   const { address } = params; // Get the wallet address from the URL (params for Next.js 13+)
+  const router = useRouter();
   const [userData, setUserData] = useState({
     username: "",
     firstName: "",
@@ -24,6 +26,12 @@ const UserProfile = ({ params }) => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const { address: currentAddress, provider } = useMetaMask(); // Get the current user's address from MetaMask context
+
+
+  // Function to handle opening the chat with the specific user
+  const handleChat = () => {
+    router.push(`/chat/${address}`);
+  };
 
   // Fetch user profile data
   useEffect(() => {
@@ -203,6 +211,13 @@ const UserProfile = ({ params }) => {
               {isFollowing ? "Unfollow" : "Follow"}
             </button>
           )}
+
+          <button
+            onClick={handleChat}
+            className="mt-4 py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            Chat with {userData.username || "User"}
+          </button>
 
           {/* If the user is viewing their own profile, show a message instead */}
           {currentAddress === address && (
