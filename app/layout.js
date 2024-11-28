@@ -18,11 +18,8 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="bg-primary text-white">
         <MetaMaskProvider>
-          {/* Only show Header and Footer if it's not the complete-profile page */}
           {!isCompleteProfilePage && <Header />}
-          <main className="container mx-auto p-4">
-            {children}
-          </main>
+          <main className="w-full">{children}</main> {/* Removed container */}
           {!isCompleteProfilePage && <Footer />}
         </MetaMaskProvider>
       </body>

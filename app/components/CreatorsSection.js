@@ -53,11 +53,11 @@ const CreatorsSection = ({ followingList }) => {
   }, [followingList]);
 
   return (
-    <div className="container mx-auto p-8">
+    <div className="w-full px-4 lg:px-16">
       <h1 className="text-3xl font-bold text-center text-white mb-6">
         {followingList && followingList.length > 0 ? "Following Creators" : "All Creators"}
       </h1>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-4">
         {creators.map((creator, index) => (
           <div
             key={index}

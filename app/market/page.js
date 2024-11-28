@@ -8,7 +8,7 @@ const MarketPage = () => {
   const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
   return (
-    <div className="container mx-auto px-8 lg:px-16">
+    <div className="w-full px-4 lg:px-16">
       <Market provider={provider} contractAddress={contractAddress} currentAddress={address} />
     </div>
   );

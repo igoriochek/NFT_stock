@@ -76,11 +76,11 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
   };
 
   return (
-    <div className="container mx-auto px-8 lg:px-16">
-      <h1 className="text-5xl font-bold text-gray-100 text-center my-8 shadow-md">Market</h1>
+    <div className="w-full px-4 lg:px-16">
+      <h1 className="text-5xl font-bold text-gray-100 text-center my-8">Market</h1>
 
       {/* Category Filter */}
-      <div className="bg-gray-800 p-4 rounded-lg shadow-md mb-8">
+      <div className="bg-gray-800 p-4 rounded-lg  mb-8">
         <h2 className="text-lg font-bold text-gray-300 mb-4">Filter by Categories</h2>
         <div className="flex flex-wrap gap-4">
           {categories.map((category, index) => (

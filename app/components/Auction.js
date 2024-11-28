@@ -84,11 +84,11 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
   };
 
   return (
-    <div className="container mx-auto px-8 lg:px-16">
-      <h1 className="text-5xl font-bold text-gray-100 text-center my-8 shadow-md">Live Auctions</h1>
-
+    <div className="w-full px-4 lg:px-16">
+      <h1 className="text-5xl font-bold text-gray-100 text-center my-8 ">Live Auctions</h1>
+  
       {/* Category Filter */}
-      <div className="bg-gray-800 p-4 rounded-lg shadow-md mb-8">
+      <div className="bg-gray-900 p-4 rounded-lg  mb-8">
         <h2 className="text-lg font-bold text-gray-300 mb-4">Filter by Categories</h2>
         <div className="flex flex-wrap gap-4">
           {categories.map((category, index) => (
@@ -106,7 +106,7 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
           ))}
         </div>
       </div>
-
+  
       {/* Auction Items */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
         {filteredAuctions.length > 0 ? (
@@ -125,6 +125,7 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
       </div>
     </div>
   );
+  
 };
 
 export default Auction;

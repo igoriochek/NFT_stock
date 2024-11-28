@@ -1,4 +1,3 @@
-// HomePage.js
 "use client";
 import React from "react";
 import Link from "next/link";
@@ -14,16 +13,18 @@ const HomePage = () => {
 
   if (!isConnected) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <h1 className="text-3xl font-bold text-gray-100 mb-6">
-          Connect MetaMask to Explore NFTs
-        </h1>
-        <button
-          onClick={connectMetaMask}
-          className="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg"
-        >
-          Connect MetaMask
-        </button>
+      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-6">
+            Connect MetaMask to Explore NFTs
+          </h1>
+          <button
+            onClick={connectMetaMask}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg"
+          >
+            Connect MetaMask
+          </button>
+        </div>
       </div>
     );
   }
@@ -64,7 +65,7 @@ const HomePage = () => {
       </section>
 
       {/* Auctions Section */}
-      <section className="bg-gray-800 py-16 w-full">
+      <section className="bg-gray-800 py-16 w-full px-4 lg:px-16">
         <Auction
           provider={provider}
           contractAddress={contractAddress}
@@ -73,8 +74,8 @@ const HomePage = () => {
       </section>
 
       {/* Featured Creators Section */}
-      <section className="px-4 lg:px-16 py-16 w-full">
-        <CreatorsSection /> {/* Use the new CreatorsSection component */}
+      <section className="w-full px-4 lg:px-16 py-16">
+        <CreatorsSection />
       </section>
     </div>
   );

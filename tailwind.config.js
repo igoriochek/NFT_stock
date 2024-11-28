@@ -7,6 +7,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      spacing: {
+        'full-width': '100vw',
+      },
       colors: {
         primary: '#1a1a1d',
         accent: '#c3073f',
