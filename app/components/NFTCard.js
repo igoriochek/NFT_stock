@@ -5,6 +5,7 @@ import Link from "next/link";
 import { shortenAddress } from "../utils/shortenAddress"; // Utility to shorten wallet addresses
 import { ethers } from "ethers"; // Needed for ETH conversion
 import { getUserProfileByAddress } from "../utils/firebaseUtils"; // Utility function for fetching username
+import { createLikeNotification } from "@/app/utils/notifications"; // Import the notification function
 
 const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
   const [timeLeft, setTimeLeft] = useState("");
@@ -136,6 +137,21 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
         updatedLikes++;
         userLikes.push(currentAddress);
         userLikedArtworks.push(nftId);
+
+        // Determine the notification link dynamically
+        const link =
+          nft.auctionActive && nft.endTime
+            ? `/auction/${nftId}` // Auction page if auction is active
+            : `/market/${nftId}`; // Market page otherwise
+
+        // Trigger a notification for the NFT owner
+        await createLikeNotification({
+          likerId: currentAddress,
+          ownerId: nft.owner,
+          nftId,
+          nftTitle: nft.title || "Untitled NFT",
+          link,
+        });
       }
 
       // Update NFT likes document

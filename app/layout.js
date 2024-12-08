@@ -1,8 +1,9 @@
-'use client'
+'use client';
 import { Inter } from "next/font/google";
 import Header from './components/Header';
 import Footer from './components/Footer';
 import { MetaMaskProvider } from './context/MetaMaskContext';
+import { NotificationProvider } from './context/NotificationContext'; // Import NotificationProvider
 import { usePathname } from "next/navigation"; // Hook to get the current path
 import "./globals.css";
 
@@ -18,9 +19,11 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="bg-primary text-white">
         <MetaMaskProvider>
-          {!isCompleteProfilePage && <Header />}
-          <main className="w-full">{children}</main> {/* Removed container */}
-          {!isCompleteProfilePage && <Footer />}
+          <NotificationProvider> {/* Wrap with NotificationProvider */}
+            {!isCompleteProfilePage && <Header />}
+            <main className="w-full">{children}</main>
+            {!isCompleteProfilePage && <Footer />}
+          </NotificationProvider>
         </MetaMaskProvider>
       </body>
     </html>

@@ -1,14 +1,16 @@
-'use client';
-import React, { useEffect, useState } from 'react';
+"use client";
+import React, { useEffect, useState } from "react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, storage } from "../firebase"; // Firebase initialization
 import { useMetaMask } from "../context/MetaMaskContext"; // MetaMask context for user info
-import LikedNFTs from '../components/LikedNfts'; // Import the LikedNFTs component
-import CreatorsSection from '../components/CreatorsSection'; // Reuse the CreatorsSection component
+import LikedNFTs from "../components/LikedNfts"; // Import the LikedNFTs component
+import CreatorsSection from "../components/CreatorsSection"; // Reuse the CreatorsSection component
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Firebase storage
+import { useRouter } from "next/navigation";
 
 const ProfilePage = () => {
   const { address: currentAddress, provider: metaMaskProvider } = useMetaMask(); // Get current MetaMask address and provider
+  const router = useRouter();
   const [profileData, setProfileData] = useState({
     username: "",
     firstName: "",
@@ -22,7 +24,7 @@ const ProfilePage = () => {
   const [editing, setEditing] = useState(false); // State to toggle edit mode
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState(null); // File for uploading new profile picture
-  
+
   const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
   // Load user profile from Firebase
@@ -75,7 +77,10 @@ const ProfilePage = () => {
 
       // If a new file is selected, upload it to Firebase Storage
       if (file) {
-        const storageRef = ref(storage, `profilePictures/${currentAddress}_${file.name}`);
+        const storageRef = ref(
+          storage,
+          `profilePictures/${currentAddress}_${file.name}`
+        );
         const snapshot = await uploadBytes(storageRef, file);
         profilePictureUrl = await getDownloadURL(snapshot.ref);
       }
@@ -103,12 +108,18 @@ const ProfilePage = () => {
 
   return (
     <div className="container mx-auto p-8 bg-gray-900 text-white">
-      <h1 className="text-3xl font-bold text-center text-white mb-6">My Profile</h1>
+      <h1 className="text-3xl font-bold text-center text-white mb-6">
+        My Profile
+      </h1>
 
       <div className="bg-gray-800 p-6 rounded-lg shadow-md max-w-6xl mx-auto">
         <div className="flex flex-col items-center">
-          <h2 className="text-2xl font-bold mb-2">{profileData.username}</h2> {/* Username */}
-          <p className="text-lg text-gray-400 mb-4">{profileData.followers.length} Followers</p> {/* Followers Count */}
+          <h2 className="text-2xl font-bold mb-2">{profileData.username}</h2>{" "}
+          {/* Username */}
+          <p className="text-lg text-gray-400 mb-4">
+            {profileData.followers.length} Followers
+          </p>{" "}
+          {/* Followers Count */}
           <img
             src={profileData.profilePicture}
             alt="Profile"
@@ -124,7 +135,9 @@ const ProfilePage = () => {
                 type="text"
                 name="username"
                 value={profileData.username}
-                onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
+                onChange={(e) =>
+                  setProfileData({ ...profileData, username: e.target.value })
+                }
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md"
               />
             ) : (
@@ -139,7 +152,9 @@ const ProfilePage = () => {
                 type="text"
                 name="firstName"
                 value={profileData.firstName}
-                onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                onChange={(e) =>
+                  setProfileData({ ...profileData, firstName: e.target.value })
+                }
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md"
               />
             ) : (
@@ -154,7 +169,9 @@ const ProfilePage = () => {
                 type="text"
                 name="lastName"
                 value={profileData.lastName}
-                onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                onChange={(e) =>
+                  setProfileData({ ...profileData, lastName: e.target.value })
+                }
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md"
               />
             ) : (
@@ -168,7 +185,9 @@ const ProfilePage = () => {
               <textarea
                 name="bio"
                 value={profileData.bio}
-                onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+                onChange={(e) =>
+                  setProfileData({ ...profileData, bio: e.target.value })
+                }
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md"
                 placeholder="Tell something about yourself"
               />
@@ -180,9 +199,17 @@ const ProfilePage = () => {
           {editing && (
             <div>
               <label className="block text-gray-300">Profile Picture</label>
-              <input type="file" onChange={handleFileChange} className="w-full text-gray-400" />
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="w-full text-gray-400"
+              />
               {profileData.profilePicture && (
-                <img src={profileData.profilePicture} alt="Profile Preview" className="mt-4 w-16 h-16 rounded-full" />
+                <img
+                  src={profileData.profilePicture}
+                  alt="Profile Preview"
+                  className="mt-4 w-16 h-16 rounded-full"
+                />
               )}
             </div>
           )}
@@ -209,8 +236,22 @@ const ProfilePage = () => {
 
       {/* Followed Creators Section */}
       <div className="mt-6 bg-gray-700 p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-bold mb-4">Following: {profileData.following.length}</h2>
-        <CreatorsSection followingList={profileData.following} /> {/* Use the reusable component */}
+        <h2 className="text-xl font-bold mb-4">
+          Following: {profileData.following.length}
+        </h2>
+        {profileData.following.length === 0 ? (
+          <div className="text-center">
+            <p className="text-gray-400">You are not following anyone yet.</p>
+            <button
+              onClick={() => router.push("/creators")} // Navigate to the creators page
+              className="mt-4 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg"
+            >
+              Explore Creators
+            </button>
+          </div>
+        ) : (
+          <CreatorsSection followingList={profileData.following} /> // Display followed creators
+        )}
       </div>
 
       {/* Liked NFTs Section */}

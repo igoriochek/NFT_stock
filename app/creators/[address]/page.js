@@ -1,13 +1,20 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { doc, getDoc, arrayUnion, arrayRemove, updateDoc } from "firebase/firestore"; // Firestore methods
+import {
+  doc,
+  getDoc,
+  arrayUnion,
+  arrayRemove,
+  updateDoc,
+} from "firebase/firestore"; // Firestore methods
 import { db } from "../../firebase"; // Firebase initialization
 import { useMetaMask } from "@/app/context/MetaMaskContext"; // MetaMask context for the current user's address
 import NFTCard from "@/app/components/NFTCard"; // Import the NFTCard component
 import { ethers } from "ethers";
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 import { getUserProfileByAddress } from "@/app/utils/firebaseUtils"; // Firebase utility for user profiles
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
+import { createFollowNotification } from "@/app/utils/notifications"; // Import the follow notification function
 
 const UserProfile = ({ params }) => {
   const { address } = params; // Get the wallet address from the URL (params for Next.js 13+)
@@ -26,7 +33,6 @@ const UserProfile = ({ params }) => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const { address: currentAddress, provider } = useMetaMask(); // Get the current user's address from MetaMask context
-
 
   // Function to handle opening the chat with the specific user
   const handleChat = () => {
@@ -63,7 +69,7 @@ const UserProfile = ({ params }) => {
   useEffect(() => {
     const fetchListedOrAuctionNFTs = async () => {
       if (!provider) return;
-  
+
       try {
         const contract = new ethers.Contract(
           process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
@@ -72,7 +78,7 @@ const UserProfile = ({ params }) => {
         );
         const totalSupply = await contract.tokenCount();
         const listedNFTs = [];
-  
+
         for (let i = 1; i <= totalSupply; i++) {
           try {
             const owner = await contract.ownerOf(i);
@@ -85,25 +91,27 @@ const UserProfile = ({ params }) => {
                 continue;
               }
               const metadata = await response.json();
-  
+
               // Fetch the owner's profile from Firebase
               const ownerProfile = await getUserProfileByAddress(owner);
               const ownerUsername = ownerProfile?.username || "Anonymous";
-              const ownerProfilePicture = ownerProfile?.profilePicture || "/images/default-avatar.png";
-  
+              const ownerProfilePicture =
+                ownerProfile?.profilePicture || "/images/default-avatar.png";
+
               // Check for auction details
               let isAuction = false;
               let highestBid = ethers.BigNumber.from(0); // Initialize as BigNumber with value 0
               let endTime = null;
               try {
-                const [active, highestBidder, highestBidValue, auctionEndTime] = await contract.getAuctionDetails(i);
+                const [active, highestBidder, highestBidValue, auctionEndTime] =
+                  await contract.getAuctionDetails(i);
                 isAuction = active;
                 highestBid = highestBidValue; // Ensure this is a BigNumber object
                 endTime = auctionEndTime;
               } catch (error) {
                 console.log(`No active auction for NFT ID: ${i}`);
               }
-  
+
               // Push the NFT data to the listedNFTs array
               listedNFTs.push({
                 id: i,
@@ -120,16 +128,15 @@ const UserProfile = ({ params }) => {
             console.error(`Error fetching data for NFT ID ${i}:`, error);
           }
         }
-  
+
         setNfts(listedNFTs);
       } catch (error) {
         console.error("Error fetching NFTs:", error);
       }
     };
-  
+
     fetchListedOrAuctionNFTs();
   }, [address, provider]);
-  
 
   // Handle Follow/Unfollow action
   const handleFollowToggle = async () => {
@@ -157,6 +164,9 @@ const UserProfile = ({ params }) => {
           following: arrayUnion(address),
         });
         setFollowersCount(followersCount + 1); // Update followers count locally
+
+        // Call the centralized notification function
+        await createFollowNotification(currentAddress, address);
       }
 
       setIsFollowing(!isFollowing); // Toggle follow/unfollow state
@@ -233,7 +243,9 @@ const UserProfile = ({ params }) => {
           </p>
 
           <div className="mt-8">
-            <h2 className="text-2xl font-bold text-gray-800">Listed and Auctioned Artworks</h2>
+            <h2 className="text-2xl font-bold text-gray-800">
+              Listed and Auctioned Artworks
+            </h2>
             <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-6 mt-4">
               {nfts.length > 0 ? (
                 nfts.map((nft) => (

@@ -27,7 +27,7 @@ const NFTDetail = () => {
   useEffect(() => {
     if (provider && id && contractAddress) {
       loadNFTDetails();
-      loadBidHistory(); // Load bid history
+      loadBidHistory();
       listenForNewBids(); // Listen for new bids in real-time
     }
   }, [provider, id]);
@@ -130,7 +130,7 @@ const NFTDetail = () => {
               bids.map((bid, index) => (
                 <p key={index}>
                   Bid placed: {bid.amount} ETH by {bid.bidder}{" "}
-                  {/* No need to shorten, it's already a username or short address */}
+                  {}
                 </p>
               ))
             ) : (
