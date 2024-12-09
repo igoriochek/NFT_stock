@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useMetaMask } from "@/app/context/MetaMaskContext"
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 import { shortenAddress } from "@/app/utils/shortenAddress";
-
+import { createNFTPurchaseNotification } from "@/app/utils/notifications";
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
 const MarketNFTDetail = () => {
@@ -23,47 +23,63 @@ const MarketNFTDetail = () => {
       loadNFTDetails();
     }
   }, [provider, id]);
-
+  
   const loadNFTDetails = async () => {
     try {
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+  
+      const nftListingType = await contract.listingTypes(id);
+      if (nftListingType !== 1) { // Check if the NFT is listed as Market
+        // Redirect to the correct page if it's not listed in Market
+        window.location.href = `/auction/${id}`;
+        return;
+      }
+  
       const tokenURI = await contract.tokenURI(id);
       const response = await fetch(tokenURI);
       const metadata = await response.json();
-
       const owner = await contract.ownerOf(id);
-      const nftPrice = await contract.getPrice(id); // Fetch the price from the smart contract
-
+      const nftPrice = await contract.getPrice(id);
+  
       setNft({
         id,
         owner,
-        price: ethers.utils.formatUnits(nftPrice, "ether"), // Convert price to ETH
+        price: ethers.utils.formatUnits(nftPrice, "ether"),
         ...metadata,
       });
-
       setLoading(false);
     } catch (error) {
       setError(error.message);
       setLoading(false);
     }
   };
+  
 
   const buyNFT = async () => {
     if (nft.owner.toLowerCase() === address.toLowerCase()) {
       alert("You cannot buy your own NFT.");
       return;
     }
-
+  
     try {
       const signer = provider.getSigner();
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-
+  
       const transaction = await contract.buy(nft.id, {
-        value: ethers.utils.parseUnits(nft.price, 'ether'),
+        value: ethers.utils.parseEther(nft.price),
       });
       await transaction.wait();
-
+  
       alert("NFT bought successfully!");
+  
+      // Notify the previous owner
+      await createNFTPurchaseNotification({
+        sellerId: nft.owner,
+        buyerId: address,
+        nftId: nft.id,
+        nftTitle: nft.title,
+        purchasePrice: nft.price,
+      });
     } catch (error) {
       console.error("Error buying NFT:", error);
       alert(`Error: ${error.message}`);

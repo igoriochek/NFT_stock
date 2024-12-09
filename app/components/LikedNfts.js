@@ -21,15 +21,12 @@ const LikedNFTs = ({ provider, contractAddress, likedArtworks, currentAddress })
   const loadLikedNFTs = async () => {
     setLoading(true);
     try {
-      console.log('Loading liked NFTs:', likedArtworks);
 
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
       const likedNFTs = [];
 
       for (const nftId of likedArtworks) {
         try {
-          console.log('Fetching data for NFT ID:', nftId);
-
           // Fetch like data from `nftLikes` document instead of `nfts` collection
           const nftLikesDoc = await getDoc(doc(db, 'nftLikes', nftId));
           if (!nftLikesDoc.exists()) {
@@ -38,14 +35,11 @@ const LikedNFTs = ({ provider, contractAddress, likedArtworks, currentAddress })
           }
 
           let nftLikeData = { id: nftId, ...nftLikesDoc.data() };
-          console.log('Firebase Likes Data for NFT:', nftLikeData);
 
           // Fetch on-chain data
           const tokenURI = await contract.tokenURI(nftId);
           const price = await contract.getPrice(nftId);
           const owner = await contract.ownerOf(nftId);
-
-          console.log('Blockchain Data:', { tokenURI, price, owner });
 
           // Fetch the metadata from tokenURI
           const response = await fetch(tokenURI);
@@ -55,7 +49,6 @@ const LikedNFTs = ({ provider, contractAddress, likedArtworks, currentAddress })
           }
 
           const metadata = await response.json();
-          console.log('Metadata from tokenURI:', metadata);
 
           // Check if the NFT is part of an active auction
           let isAuction = false;

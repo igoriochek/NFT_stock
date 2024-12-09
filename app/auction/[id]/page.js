@@ -8,6 +8,10 @@ import PlaceBidModal from "@/app/modals/PlaceBidModal";
 import { shortenAddress } from "@/app/utils/shortenAddress";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { getUserProfileByAddress } from "@/app/utils/firebaseUtils";
+import {
+  createAuctionWinNotification,
+  createAuctionSaleNotification,
+} from "@/app/utils/notifications";
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
@@ -29,39 +33,52 @@ const NFTDetail = () => {
       loadNFTDetails();
       loadBidHistory();
       listenForNewBids(); // Listen for new bids in real-time
+      listenForAuctionEnd(); // Listen for auction completion
     }
-  }, [provider, id]);
-
-  const loadNFTDetails = async () => {
-    try {
+    // Cleanup to avoid duplicate listeners
+    return () => {
       const contract = new ethers.Contract(
         contractAddress,
         ArtNFT.abi,
         provider
       );
+      contract.removeAllListeners("AuctionEnded");
+      contract.removeAllListeners("BidPlaced");
+    };
+  }, [provider, id]);
+  
+  const loadNFTDetails = async () => {
+    try {
+      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+  
+      const nftListingType = await contract.listingTypes(id);
+      if (nftListingType !== 2) { // Check if the NFT is listed as Auction
+        // Redirect to the correct page if it's not listed in Auction
+        window.location.href = `/market/${id}`;
+        return;
+      }
+  
       const tokenURI = await contract.tokenURI(id);
       const response = await fetch(tokenURI);
       const metadata = await response.json();
-
       const owner = await contract.ownerOf(id);
-      const [active, highestBidder, highestBid, endTime] =
-        await contract.getAuctionDetails(id);
-
+      const auctionDetails = await contract.getAuctionDetails(id);
+  
       setNft({
         id,
         owner,
-        highestBid,
-        highestBidder,
-        endTime,
+        highestBid: auctionDetails[2],
+        highestBidder: auctionDetails[1],
+        endTime: auctionDetails[3],
         ...metadata,
       });
-
       setLoading(false);
     } catch (error) {
       setError(error.message);
       setLoading(false);
     }
   };
+  
 
   const loadBidHistory = async () => {
     try {
@@ -121,6 +138,38 @@ const NFTDetail = () => {
     };
   };
 
+  // Auction End Listener
+  const listenForAuctionEnd = () => {
+    const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+
+    contract.on("AuctionEnded", async (tokenId, winner, finalBid) => {
+      if (tokenId.toString() === id.toString()) {
+        const finalBidFormatted = ethers.utils.formatUnits(finalBid, "ether");
+
+        // Notify Auction Winner
+        await createAuctionWinNotification({
+          winnerId: winner,
+          nftId: tokenId,
+          finalBid: finalBidFormatted,
+        });
+
+        // Notify Seller About Sale
+        await createAuctionSaleNotification({
+          sellerId: nft.owner,
+          nftId: tokenId,
+          finalBid: finalBidFormatted,
+        });
+
+        // Refresh Auction Details
+        loadNFTDetails();
+      }
+    });
+
+    return () => {
+      contract.removeAllListeners("AuctionEnded");
+    };
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "bids":
@@ -129,8 +178,7 @@ const NFTDetail = () => {
             {bids.length > 0 ? (
               bids.map((bid, index) => (
                 <p key={index}>
-                  Bid placed: {bid.amount} ETH by {bid.bidder}{" "}
-                  {}
+                  Bid placed: {bid.amount} ETH by {bid.bidder} {}
                 </p>
               ))
             ) : (

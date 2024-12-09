@@ -15,6 +15,7 @@ import {
 import { db } from "../../firebase";
 import { useMetaMask } from "@/app/context/MetaMaskContext";
 import { getUserProfileByAddress } from "@/app/utils/firebaseUtils";
+import { createChatMessageNotification } from "@/app/utils/notifications";
 
 const ChatPage = ({ params }) => {
   const { address: targetAddress } = params;
@@ -89,7 +90,7 @@ const ChatPage = ({ params }) => {
         : `${targetAddress}_${currentAddress}`;
   
     try {
-      await ensureChatDocumentExists(chatId); // Ensure the chat document exists
+      await ensureChatDocumentExists(chatId); // Ensure chat exists
   
       // Add the new message
       await addDoc(collection(db, "chats", chatId, "messages"), {
@@ -99,8 +100,17 @@ const ChatPage = ({ params }) => {
         seen: false,
       });
   
-      // Reset the message input and update typing status
+      // Reset message input
       setNewMessage("");
+  
+      // Trigger message notification
+      await createChatMessageNotification({
+        senderId: currentAddress,
+        recipientId: targetAddress,
+        chatId,
+      });
+  
+      // Update typing status
       await updateDoc(doc(db, "chats", chatId), {
         [`typingStatus.${currentAddress}`]: false,
       });

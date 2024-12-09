@@ -1,46 +1,73 @@
 import React, { useState } from 'react';
 import { ethers } from 'ethers';
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
+import { useMetaMask } from "@/app/context/MetaMaskContext";
+import {
+  createNewBidNotification,
+  createOutbidNotification,
+} from "@/app/utils/notifications";
 
 const PlaceBidModal = ({ nft, closeModal, provider, contractAddress, refreshAuctions }) => {
   const [bidAmount, setBidAmount] = useState('');
   const [loading, setLoading] = useState(false);
-
+  const { address } = useMetaMask();
   const minBid = parseFloat(ethers.utils.formatUnits(nft.highestBid, 'ether')) + 0.1;
   const serviceFee = 0.25;
   const totalBidAmount = (parseFloat(bidAmount || 0) + serviceFee).toFixed(2);
 
   const placeBid = async () => {
-    if (!provider) {
-      alert('Provider not available. Please ensure Metamask is connected.');
+    if (!provider || !contractAddress || !address) {
+      alert("Wallet not connected!");
       return;
     }
-
-    if (parseFloat(bidAmount) < minBid) {
-      alert(`Your bid must be at least ${minBid} ETH.`);
+  
+    if (!bidAmount || isNaN(parseFloat(bidAmount)) || parseFloat(bidAmount) <= 0) {
+      alert("Please enter a valid bid amount!");
       return;
     }
-
+  
     try {
-      setLoading(true);
       const signer = provider.getSigner();
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-
+  
+      // Correctly parse bidAmount as BigNumber
+      const parsedBidAmount = ethers.utils.parseEther(bidAmount.toString());
+  
       const transaction = await contract.placeBid(nft.id, {
-        value: ethers.utils.parseUnits(bidAmount, 'ether'),
+        value: parsedBidAmount,
       });
+  
       await transaction.wait();
-
-      alert('Bid placed successfully!');
-      refreshAuctions(); // Refresh the auction list after placing a bid
-      closeModal(); // Close modal upon success
+  
+      alert("Bid placed successfully!");
+      refreshAuctions();
+      closeModal();
+  
+      // Notifications
+      const previousBidderId = nft.highestBidder;
+      const currentBidderId = address;
+      const bidAmountFormatted = ethers.utils.formatUnits(parsedBidAmount, "ether");
+  
+      await createNewBidNotification({
+        sellerId: nft.owner,
+        bidderId: currentBidderId,
+        nftId: nft.id,
+        bidAmount: bidAmountFormatted,
+      });
+  
+      if (previousBidderId && previousBidderId !== currentBidderId) {
+        await createOutbidNotification({
+          previousBidderId,
+          nftId: nft.id,
+          refundAmount: ethers.utils.formatUnits(nft.highestBid, "ether"),
+        });
+      }
     } catch (error) {
-      console.error('Error placing bid:', error);
+      console.error("Error placing bid:", error);
       alert(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
     }
   };
+  
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

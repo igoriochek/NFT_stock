@@ -1,9 +1,9 @@
 NFTS:
-Fix bug of listed NFTS (When listed in market, it also shows detailed auction page)
+Fix bug of listed NFTS (When listed in market, it also shows detailed auction page) +
 Add categories while minting NFTS +
 
 Notifications:
-Add notifications mechanism
+Add notifications mechanism +
 
 Statistics:
 Add Statistics like earnings..
