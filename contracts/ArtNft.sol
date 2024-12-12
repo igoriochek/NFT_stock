@@ -21,13 +21,14 @@ contract ArtNFT is ERC721URIStorage, Ownable {
     mapping(uint256 => string[]) public nftCategories;
     mapping(uint256 => ListingType) public listingTypes;
 
-    // Corrected event definitions
-    event NFTMinted(address owner, uint256 tokenId, string tokenURI);
-    event NFTListed(uint256 tokenId, uint256 price, ListingType listingType); // Updated with listingType
-    event NFTBought(address buyer, uint256 tokenId, uint256 price);
+
+
+    event NFTMinted(address indexed owner, uint256 tokenId, string tokenURI);
+    event NFTListed(uint256 tokenId, uint256 price, ListingType listingType);
+    event NFTBought(address indexed buyer, uint256 tokenId, uint256 price);
     event AuctionStarted(uint256 tokenId, uint256 duration);
     event BidPlaced(uint256 tokenId, address bidder, uint256 amount);
-    event AuctionEnded(uint256 tokenId, address winner, uint256 amount);
+    event AuctionEnded(uint256 tokenId, address indexed winner, uint256 amount);
     event NFTDelisted(uint256 tokenId);
 
     constructor() ERC721("ArtNFT", "ART") Ownable(msg.sender) {}

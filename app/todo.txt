@@ -11,3 +11,5 @@ Add Statistics like earnings..
 Searching:
 Add searching mechanism
 
+Freedom of metamask:
+Let users explore arts and creators without metamask, but do not let do any actions

@@ -15,9 +15,10 @@ import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 import { getUserProfileByAddress } from "@/app/utils/firebaseUtils"; // Firebase utility for user profiles
 import { useRouter } from "next/navigation";
 import { createFollowNotification } from "@/app/utils/notifications"; // Import the follow notification function
+import { getUserStatistics } from "@/app/utils/firebaseStatistics";
 
 const UserProfile = ({ params }) => {
-  const { address } = params; // Get the wallet address from the URL (params for Next.js 13+)
+  const { address } = params; 
   const router = useRouter();
   const [userData, setUserData] = useState({
     username: "",
@@ -26,13 +27,17 @@ const UserProfile = ({ params }) => {
     bio: "",
     profilePicture: "/images/default-avatar.png",
     followers: [],
-    earnings: "0",
+  });
+  const [userStats, setUserStats] = useState({
+    nftsMinted: 0,
+    nftsBought: 0,
+    nftsSold: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [nfts, setNfts] = useState([]); // To store listed or auction NFTs
+  const [nfts, setNfts] = useState([]); 
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
-  const { address: currentAddress, provider } = useMetaMask(); // Get the current user's address from MetaMask context
+  const { address: currentAddress, provider } = useMetaMask(); 
 
   // Function to handle opening the chat with the specific user
   const handleChat = () => {
@@ -175,6 +180,42 @@ const UserProfile = ({ params }) => {
     }
   };
 
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!address) return;
+
+      try {
+        const userRef = doc(db, "users", address);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserData(data);
+          setFollowersCount(data.followers?.length || 0); 
+          setIsFollowing(data.followers?.includes(currentAddress)); 
+        } else {
+          console.error("User not found");
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchUserStatistics = async () => {
+      if (!address) {
+        return;
+      }
+      const stats = await getUserStatistics(address);
+      if (stats) {
+        setUserStats(stats);
+      }
+    };
+
+    fetchUserData();
+    fetchUserStatistics();
+  }, [address, currentAddress]);
+
   if (loading) return <p>Loading...</p>;
 
   if (!userData) return <p>User not found</p>;
@@ -197,10 +238,10 @@ const UserProfile = ({ params }) => {
           </p>
 
           <div className="mt-6">
-            <p className="font-bold text-gray-800">Earnings:</p>
-            <p className="text-xl text-gray-600">
-              {userData.earnings ? `${userData.earnings} ETH` : "0 ETH"}
-            </p>
+            <p className="font-bold text-gray-800">Statistics:</p>
+            <p className="text-gray-600">NFTs Minted: {userStats.nftsMinted}</p>
+            <p className="text-gray-600">NFTs Bought: {userStats.nftsBought}</p>
+            <p className="text-gray-600">NFTs Sold: {userStats.nftsSold}</p>
           </div>
 
           <div className="mt-4">

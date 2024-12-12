@@ -5,6 +5,17 @@ import { useParams } from "next/navigation";
 import { useMetaMask } from "@/app/context/MetaMaskContext";
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 import PlaceBidModal from "@/app/modals/PlaceBidModal";
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  LineElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
 import { shortenAddress } from "@/app/utils/shortenAddress";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { getUserProfileByAddress } from "@/app/utils/firebaseUtils";
@@ -12,6 +23,22 @@ import {
   createAuctionWinNotification,
   createAuctionSaleNotification,
 } from "@/app/utils/notifications";
+import {
+  incrementBoughtCount,
+  incrementSoldCount,
+  updatePriceHistory,
+  getPriceHistory,
+} from "@/app/utils/firebaseStatistics";
+
+ChartJS.register(
+  LineElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
@@ -22,7 +49,7 @@ const NFTDetail = () => {
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState("bids");
   const [bids, setBids] = useState([]);
-
+  const [priceHistory, setPriceHistory] = useState([]);
   const { id } = useParams();
 
   // Use MetaMaskContext to get provider and address
@@ -31,6 +58,7 @@ const NFTDetail = () => {
   useEffect(() => {
     if (provider && id && contractAddress) {
       loadNFTDetails();
+      fetchPriceHistory();
       loadBidHistory();
       listenForNewBids(); // Listen for new bids in real-time
       listenForAuctionEnd(); // Listen for auction completion
@@ -46,24 +74,34 @@ const NFTDetail = () => {
       contract.removeAllListeners("BidPlaced");
     };
   }, [provider, id]);
-  
+
+  const fetchPriceHistory = async () => {
+    const history = await getPriceHistory(id);
+    setPriceHistory(history);
+  };
+
   const loadNFTDetails = async () => {
     try {
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
-  
+      const contract = new ethers.Contract(
+        contractAddress,
+        ArtNFT.abi,
+        provider
+      );
+
       const nftListingType = await contract.listingTypes(id);
-      if (nftListingType !== 2) { // Check if the NFT is listed as Auction
+      if (nftListingType !== 2) {
+        // Check if the NFT is listed as Auction
         // Redirect to the correct page if it's not listed in Auction
         window.location.href = `/market/${id}`;
         return;
       }
-  
+
       const tokenURI = await contract.tokenURI(id);
       const response = await fetch(tokenURI);
       const metadata = await response.json();
       const owner = await contract.ownerOf(id);
       const auctionDetails = await contract.getAuctionDetails(id);
-  
+
       setNft({
         id,
         owner,
@@ -78,7 +116,6 @@ const NFTDetail = () => {
       setLoading(false);
     }
   };
-  
 
   const loadBidHistory = async () => {
     try {
@@ -146,6 +183,20 @@ const NFTDetail = () => {
       if (tokenId.toString() === id.toString()) {
         const finalBidFormatted = ethers.utils.formatUnits(finalBid, "ether");
 
+        const lastPriceEntry = priceHistory[priceHistory.length - 1] || {
+          price: "0",
+        };
+        const lastPrice = parseFloat(lastPriceEntry.price);
+
+        const changeType =
+          lastPrice === 0
+            ? "starting"
+            : finalBidFormatted > lastPrice
+            ? "increase"
+            : "decrease";
+
+        await updatePriceHistory(tokenId, finalBidFormatted, changeType);
+
         // Notify Auction Winner
         await createAuctionWinNotification({
           winnerId: winner,
@@ -159,6 +210,9 @@ const NFTDetail = () => {
           nftId: tokenId,
           finalBid: finalBidFormatted,
         });
+
+        await incrementBoughtCount(winner);
+        await incrementSoldCount(nft.owner);
 
         // Refresh Auction Details
         loadNFTDetails();
@@ -230,21 +284,55 @@ const NFTDetail = () => {
             </div>
           </div>
         );
-      case "history":
-        return (
-          <div>
-            {bids.length > 0 ? (
-              bids.map((bid, index) => (
-                <p key={index}>
-                  Bid accepted {bid.amount} ETH by {bid.bidder} on {bid.date} at{" "}
-                  {bid.time}
-                </p>
-              ))
-            ) : (
-              <p>No bidding history available.</p>
-            )}
-          </div>
-        );
+        case "history":
+          return (
+            <div className="mt-6">
+              <h2 className="text-xl font-bold mb-4">Bid History Chart</h2>
+              {bids.length > 0 ? (
+                <div>
+                  <Line
+                    data={{
+                      labels: bids.map((bid) =>
+                        new Date(bid.timestamp).toLocaleString()
+                      ),
+                      datasets: [
+                        {
+                          label: "Bid Amount (ETH)",
+                          data: bids.map((bid) => parseFloat(bid.amount)),
+                          borderColor: "#4caf50",
+                          backgroundColor: "rgba(76, 175, 80, 0.2)",
+                          tension: 0.3,
+                        },
+                      ],
+                    }}
+                    options={{
+                      plugins: {
+                        legend: {
+                          labels: {
+                            color: "white",
+                          },
+                        },
+                      },
+                      scales: {
+                        x: {
+                          ticks: {
+                            color: "white",
+                          },
+                        },
+                        y: {
+                          ticks: {
+                            color: "white",
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              ) : (
+                <p>No bid history available.</p>
+              )}
+            </div>
+          );
       default:
         return null;
     }
@@ -289,8 +377,8 @@ const NFTDetail = () => {
 
           <div className="flex justify-between mt-6">
             <div className="text-center">
-              <p className="text-sm font-bold text-white">Owner</p>
-              <p className="text-xs text-gray-400">
+              <p className="text-sm font-bold text-gray-400 ">Owner:</p>
+              <p className="text-xs text-white">
                 {shortenAddress(nft.owner)}
               </p>
             </div>
@@ -361,8 +449,10 @@ const NFTDetail = () => {
             Details
           </button>
           <button
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white transition-all hover:from-blue-600 hover:to-blue-500"
             onClick={() => setActiveTab("history")}
+            className={`py-2 px-4 rounded-lg ${
+              activeTab === "history" ? "bg-blue-500" : "bg-blue-600"
+            } text-white`}
           >
             History
           </button>

@@ -6,8 +6,8 @@ import { useMetaMask } from "../context/MetaMaskContext";
 import NFTGallery from "../components/NftGallery";
 import SellModal from "../modals/SellModal";
 import AuctionModal from "../modals/AuctionModal";
-
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
+import { incrementMintedCount } from "../utils/firebaseStatistics";
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const EXPECTED_CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_EXPECTED_CHAIN_ID);
@@ -108,6 +108,8 @@ const Upload = () => {
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
       let transaction = await contract.mint(url);
       await transaction.wait();
+
+      await incrementMintedCount(currentAddress);
 
       alert("NFT Minted Successfully!");
       refreshNFTs();
