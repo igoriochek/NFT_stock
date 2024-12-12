@@ -188,7 +188,7 @@ const Upload = () => {
   if (!isConnected) {
     return (
       <div className="container mx-auto px-4 py-8 text-center text-white">
-        <h1 className="text-3xl font-bold mb-6">Upload and Mint Your NFT</h1>
+        <h1 className="text-3xl text-white font-bold mb-6">Upload and Mint Your NFT</h1>
         <p className="mb-6">Please connect to MetaMask to proceed.</p>
         <button
           onClick={connectMetaMask}

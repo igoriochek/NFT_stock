@@ -11,24 +11,6 @@ const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const HomePage = () => {
   const { isConnected, address, provider, connectMetaMask } = useMetaMask();
 
-  if (!isConnected) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-6">
-            Connect MetaMask to Explore NFTs
-          </h1>
-          <button
-            onClick={connectMetaMask}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg"
-          >
-            Connect MetaMask
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-gray-900 text-white w-full">
       {/* Welcome Banner Section */}
@@ -44,13 +26,13 @@ const HomePage = () => {
             href="/auction"
             className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold"
           >
-            Place a Bid
+            Explore Auctions
           </Link>
           <Link
             href="/market"
             className="bg-white hover:bg-gray-100 text-blue-600 py-3 px-6 rounded-lg font-semibold"
           >
-            View Artwork
+            View Marketplace
           </Link>
         </div>
       </section>
@@ -61,6 +43,7 @@ const HomePage = () => {
           provider={provider}
           contractAddress={contractAddress}
           currentAddress={address}
+          isConnected={isConnected}
         />
       </section>
 
@@ -70,6 +53,7 @@ const HomePage = () => {
           provider={provider}
           contractAddress={contractAddress}
           currentAddress={address}
+          isConnected={isConnected}
         />
       </section>
 

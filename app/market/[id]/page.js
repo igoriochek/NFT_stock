@@ -6,6 +6,7 @@ import { useMetaMask } from "@/app/context/MetaMaskContext";
 import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
 import { shortenAddress } from "@/app/utils/shortenAddress";
 import { createNFTPurchaseNotification } from "@/app/utils/notifications";
+import { getHardhatProvider } from "@/app/utils/getHardhatProvider";
 import {
   getPriceHistory,
   updatePriceHistory,
@@ -45,21 +46,28 @@ const MarketNFTDetail = () => {
   const { id } = useParams();
 
   // Use MetaMaskContext to get provider, current address, and connection state
-  const { isConnected, provider, address, connectMetaMask } = useMetaMask();
+  const {
+    isConnected,
+    provider: metaMaskProvider,
+    address,
+    connectMetaMask,
+  } = useMetaMask();
+  const hardhatProvider = getHardhatProvider();
+  const activeProvider = isConnected ? metaMaskProvider : hardhatProvider;
 
   useEffect(() => {
-    if (provider && id && contractAddress) {
+    if (activeProvider && id && contractAddress) {
       loadNFTDetails();
       loadPriceHistory(); // Load price history on page load
     }
-  }, [provider, id]);
+  }, [activeProvider, id]);
 
   const loadNFTDetails = async () => {
     try {
       const contract = new ethers.Contract(
         contractAddress,
         ArtNFT.abi,
-        provider
+        activeProvider
       );
 
       const nftListingType = await contract.listingTypes(id);
@@ -104,7 +112,7 @@ const MarketNFTDetail = () => {
     }
 
     try {
-      const signer = provider.getSigner();
+      const signer = activeProvider.getSigner();
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
 
       const transaction = await contract.buy(nft.id, {
@@ -234,7 +242,6 @@ const MarketNFTDetail = () => {
             },
           },
         };
-        
 
         return (
           <div>
@@ -257,23 +264,6 @@ const MarketNFTDetail = () => {
   if (loading) return <p>Loading NFT details...</p>;
   if (error) return <p>Error: {error}</p>;
   if (!nft) return <p>NFT not found or inactive.</p>;
-
-  if (!isConnected) {
-    return (
-      <div className="container mx-auto px-4 py-8 text-center text-white">
-        <h1 className="text-3xl font-bold mb-6">NFT Details</h1>
-        <p className="mb-6">
-          Please connect to MetaMask to view NFT details and make purchases.
-        </p>
-        <button
-          onClick={connectMetaMask}
-          className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg"
-        >
-          Connect MetaMask
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto p-8">
@@ -304,10 +294,34 @@ const MarketNFTDetail = () => {
 
           <div className="mt-4">
             <button
-              onClick={buyNFT}
-              className="bg-blue-500 text-white py-3 px-4 rounded-lg w-full hover:bg-blue-600 transition-all"
+              className={`py-3 px-4 rounded-lg w-full ${
+                !isConnected ||
+                nft?.owner?.toLowerCase() === address?.toLowerCase()
+                  ? "bg-gray-500 cursor-not-allowed"
+                  : "bg-blue-500 hover:bg-blue-600"
+              } text-white transition-all`}
+              onClick={() =>
+                isConnected &&
+                nft?.owner?.toLowerCase() !== address?.toLowerCase() &&
+                buyNFT()
+              }
+              disabled={
+                !isConnected ||
+                nft?.owner?.toLowerCase() === address?.toLowerCase()
+              }
+              title={
+                !isConnected
+                  ? "Connect MetaMask to purchase"
+                  : nft?.owner?.toLowerCase() === address?.toLowerCase()
+                  ? "You cannot buy your own NFT"
+                  : "Buy this NFT"
+              }
             >
-              Buy Now
+              {!isConnected
+                ? "Connect Wallet"
+                : nft?.owner?.toLowerCase() === address?.toLowerCase()
+                ? "Owner Cannot Buy"
+                : "Buy Now"}
             </button>
           </div>
         </div>

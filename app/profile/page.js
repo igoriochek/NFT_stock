@@ -9,7 +9,12 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Firebase
 import { useRouter } from "next/navigation";
 
 const ProfilePage = () => {
-  const { address: currentAddress, provider: metaMaskProvider } = useMetaMask(); // Get current MetaMask address and provider
+  const {
+    address: currentAddress,
+    provider: metaMaskProvider,
+    isConnected,
+    connectMetaMask,
+  } = useMetaMask();
   const router = useRouter();
   const [profileData, setProfileData] = useState({
     username: "",
@@ -27,30 +32,31 @@ const ProfilePage = () => {
 
   const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
-  // Load user profile from Firebase
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!currentAddress) return;
-      setLoading(true);
+   // Fetch profile data from Firebase
+   const loadProfile = async () => {
+    if (!currentAddress) return;
+    setLoading(true);
 
-      try {
-        // Fetch user profile data, including likedArtworks and bio from Firebase
-        const userRef = doc(db, "users", currentAddress);
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setProfileData(data);
-        } else {
-          console.error("User profile does not exist");
-        }
-      } catch (error) {
-        console.error("Error loading profile:", error);
+    try {
+      const userRef = doc(db, "users", currentAddress);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        setProfileData(userDoc.data());
+      } else {
+        console.error("User profile does not exist");
       }
-      setLoading(false);
-    };
+    } catch (error) {
+      console.error("Error loading profile:", error);
+    }
+    setLoading(false);
+  };
 
-    loadProfile();
-  }, [currentAddress]);
+  // Load profile on connection
+  useEffect(() => {
+    if (isConnected) {
+      loadProfile();
+    }
+  }, [isConnected]);
 
   // Toggle between edit and view mode
   const toggleEdit = () => setEditing(!editing);
@@ -103,6 +109,23 @@ const ProfilePage = () => {
       alert("Error updating profile. Please try again.");
     }
   };
+
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center text-white">
+        <h1 className="text-3xl text-white font-bold mb-6">Profile Page</h1>
+        <p className="mb-6">
+          Please connect to MetaMask to access your profile.
+        </p>
+        <button
+          onClick={connectMetaMask}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg"
+        >
+          Connect MetaMask
+        </button>
+      </div>
+    );
+  }
 
   if (loading) return <p>Loading...</p>;
 

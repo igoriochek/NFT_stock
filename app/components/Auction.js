@@ -9,12 +9,21 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
   const [filteredAuctions, setFilteredAuctions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [localProvider, setLocalProvider] = useState(null);
 
   useEffect(() => {
-    if (provider) {
-      loadAuctions();
+    // Use Hardhat local provider if MetaMask is not connected
+    if (!provider && !localProvider) {
+      const hardhatProvider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545');
+      setLocalProvider(hardhatProvider);
     }
   }, [provider]);
+
+  useEffect(() => {
+    if (provider || localProvider) {
+      loadAuctions();
+    }
+  }, [provider, localProvider]);
 
   useEffect(() => {
     if (selectedCategories.length === 0) {
@@ -29,9 +38,10 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
 
   const loadAuctions = async () => {
     try {
-      if (!provider) return;
+      const activeProvider = provider || localProvider;
+      if (!activeProvider) return;
 
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, activeProvider);
       const totalSupply = await contract.tokenCount();
       const items = [];
 
@@ -43,7 +53,6 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
           const nftCategories = await contract.getCategories(i);
 
           const response = await fetch(tokenURI);
-
           if (!response.ok) {
             throw new Error(`Failed to fetch metadata for token ${i}`);
           }
@@ -55,7 +64,7 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
             highestBidder,
             highestBid: ethers.BigNumber.isBigNumber(highestBid)
               ? highestBid
-              : ethers.BigNumber.from(highestBid || "0"), // Ensure valid BigNumber
+              : ethers.BigNumber.from(highestBid || "0"),
             endTime,
             owner,
             categories: nftCategories,
@@ -64,7 +73,6 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
         }
       }
 
-      // Extract unique categories
       const uniqueCategories = Array.from(
         new Set(items.flatMap((auction) => auction.categories))
       );
@@ -85,10 +93,10 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
 
   return (
     <div className="w-full px-4 lg:px-16">
-      <h1 className="text-5xl font-bold text-gray-100 text-center my-8 ">Live Auctions</h1>
-  
+      <h1 className="text-5xl font-bold text-gray-100 text-center my-8">Live Auctions</h1>
+
       {/* Category Filter */}
-      <div className="bg-gray-900 p-4 rounded-lg  mb-8">
+      <div className="bg-gray-900 p-4 rounded-lg mb-8">
         <h2 className="text-lg font-bold text-gray-300 mb-4">Filter by Categories</h2>
         <div className="flex flex-wrap gap-4">
           {categories.map((category, index) => (
@@ -106,14 +114,14 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
           ))}
         </div>
       </div>
-  
+
       {/* Auction Items */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
         {filteredAuctions.length > 0 ? (
           filteredAuctions.map((nft) => (
             <div key={nft.id} className="flex justify-center">
               <NFTCard
-                nft={nft} // Pass raw data
+                nft={nft}
                 currentAddress={currentAddress}
                 isAuction={true}
               />
@@ -125,7 +133,6 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
       </div>
     </div>
   );
-  
 };
 
 export default Auction;

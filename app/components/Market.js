@@ -9,12 +9,25 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
   const [filteredNFTs, setFilteredNFTs] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [localProvider, setLocalProvider] = useState(null);
 
+  // Use Hardhat local provider if MetaMask is not connected
   useEffect(() => {
-    if (provider) {
-      loadListedNFTs();
+    if (!provider && !localProvider) {
+      const hardhatProvider = new ethers.providers.JsonRpcProvider(
+        'http://127.0.0.1:8545'
+      );
+      setLocalProvider(hardhatProvider);
     }
   }, [provider]);
+
+  const activeProvider = provider || localProvider;
+
+  useEffect(() => {
+    if (activeProvider) {
+      loadListedNFTs();
+    }
+  }, [activeProvider]);
 
   useEffect(() => {
     if (selectedCategories.length === 0) {
@@ -29,9 +42,13 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
 
   const loadListedNFTs = async () => {
     try {
-      if (!provider) return;
+      if (!activeProvider) return;
 
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+      const contract = new ethers.Contract(
+        contractAddress,
+        ArtNFT.abi,
+        activeProvider
+      );
       const listedTokens = await contract.getListedTokens();
       const items = [];
 
@@ -77,11 +94,15 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
 
   return (
     <div className="w-full px-4 lg:px-16">
-      <h1 className="text-5xl font-bold text-gray-100 text-center my-8">Market</h1>
+      <h1 className="text-5xl font-bold text-gray-100 text-center my-8">
+        Market
+      </h1>
 
       {/* Category Filter */}
-      <div className="bg-gray-800 p-4 rounded-lg  mb-8">
-        <h2 className="text-lg font-bold text-gray-300 mb-4">Filter by Categories</h2>
+      <div className="bg-gray-800 p-4 rounded-lg mb-8">
+        <h2 className="text-lg font-bold text-gray-300 mb-4">
+          Filter by Categories
+        </h2>
         <div className="flex flex-wrap gap-4">
           {categories.map((category, index) => (
             <button
@@ -107,13 +128,15 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
               <NFTCard
                 nft={nft}
                 currentAddress={currentAddress}
-                onBuy={() => {}}
+                activeProvider={activeProvider}
                 isAuction={false}
               />
             </div>
           ))
         ) : (
-          <p className="text-center col-span-full text-gray-400">No NFTs matching the selected filters.</p>
+          <p className="text-center col-span-full text-gray-400">
+            No NFTs matching the selected filters.
+          </p>
         )}
       </div>
     </div>

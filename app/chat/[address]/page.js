@@ -19,7 +19,7 @@ import { createChatMessageNotification } from "@/app/utils/notifications";
 
 const ChatPage = ({ params }) => {
   const { address: targetAddress } = params;
-  const { address: currentAddress } = useMetaMask();
+  const { address: currentAddress, connectMetaMask } = useMetaMask();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [targetUserProfile, setTargetUserProfile] = useState({});
@@ -30,7 +30,7 @@ const ChatPage = ({ params }) => {
   const ensureChatDocumentExists = async (chatId) => {
     const chatDocRef = doc(db, "chats", chatId);
     const chatDoc = await getDoc(chatDocRef);
-  
+
     if (!chatDoc.exists()) {
       // Initialize the chat document with default fields
       await setDoc(
@@ -44,7 +44,6 @@ const ChatPage = ({ params }) => {
       );
     }
   };
-  
 
   useEffect(() => {
     if (!targetAddress) return;
@@ -83,15 +82,15 @@ const ChatPage = ({ params }) => {
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
-  
+
     const chatId =
       currentAddress < targetAddress
         ? `${currentAddress}_${targetAddress}`
         : `${targetAddress}_${currentAddress}`;
-  
+
     try {
       await ensureChatDocumentExists(chatId); // Ensure chat exists
-  
+
       // Add the new message
       await addDoc(collection(db, "chats", chatId, "messages"), {
         sender: currentAddress,
@@ -99,17 +98,17 @@ const ChatPage = ({ params }) => {
         timestamp: serverTimestamp(),
         seen: false,
       });
-  
+
       // Reset message input
       setNewMessage("");
-  
+
       // Trigger message notification
       await createChatMessageNotification({
         senderId: currentAddress,
         recipientId: targetAddress,
         chatId,
       });
-  
+
       // Update typing status
       await updateDoc(doc(db, "chats", chatId), {
         [`typingStatus.${currentAddress}`]: false,
@@ -118,20 +117,19 @@ const ChatPage = ({ params }) => {
       console.error("Error sending message:", error);
     }
   };
-  
 
   const handleTyping = async (e) => {
     const messageText = e.target.value;
     setNewMessage(messageText);
-  
+
     const chatId =
       currentAddress < targetAddress
         ? `${currentAddress}_${targetAddress}`
         : `${targetAddress}_${currentAddress}`;
-  
+
     // Ensure the chat document exists
     await ensureChatDocumentExists(chatId);
-  
+
     if (messageText.trim() === "") {
       clearTimeout(typingTimeoutRef.current);
       await updateDoc(doc(db, "chats", chatId), {
@@ -142,7 +140,7 @@ const ChatPage = ({ params }) => {
       await updateDoc(doc(db, "chats", chatId), {
         [`typingStatus.${currentAddress}`]: true,
       });
-  
+
       typingTimeoutRef.current = setTimeout(async () => {
         await updateDoc(doc(db, "chats", chatId), {
           [`typingStatus.${currentAddress}`]: false,
@@ -150,7 +148,6 @@ const ChatPage = ({ params }) => {
       }, 3000);
     }
   };
-  
 
   const handleBlur = async () => {
     if (newMessage.trim() === "") {
@@ -158,7 +155,9 @@ const ChatPage = ({ params }) => {
         currentAddress < targetAddress
           ? `${currentAddress}_${targetAddress}`
           : `${targetAddress}_${currentAddress}`;
-      await updateDoc(doc(db, "chats", chatId), { [`typingStatus.${currentAddress}`]: false });
+      await updateDoc(doc(db, "chats", chatId), {
+        [`typingStatus.${currentAddress}`]: false,
+      });
     }
   };
 
@@ -179,6 +178,24 @@ const ChatPage = ({ params }) => {
 
     return () => typingUnsub();
   }, [currentAddress, targetAddress]);
+
+  // Redirect unlogged users
+  if (!currentAddress) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center text-white">
+        <h1 className="text-3xl text-white font-bold mb-6">Chat Access Denied</h1>
+        <p className="text-white mb-6">
+          Please connect to MetaMask to access chat features.
+        </p>
+        <button
+          onClick={connectMetaMask}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg"
+        >
+          Connect MetaMask
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 bg-gray-100 h-full text-gray-800">

@@ -18,7 +18,7 @@ import { createFollowNotification } from "@/app/utils/notifications"; // Import 
 import { getUserStatistics } from "@/app/utils/firebaseStatistics";
 
 const UserProfile = ({ params }) => {
-  const { address } = params; 
+  const { address } = params;
   const router = useRouter();
   const [userData, setUserData] = useState({
     username: "",
@@ -34,10 +34,10 @@ const UserProfile = ({ params }) => {
     nftsSold: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [nfts, setNfts] = useState([]); 
+  const [nfts, setNfts] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
-  const { address: currentAddress, provider } = useMetaMask(); 
+  const { address: currentAddress, provider } = useMetaMask();
 
   // Function to handle opening the chat with the specific user
   const handleChat = () => {
@@ -190,8 +190,8 @@ const UserProfile = ({ params }) => {
         if (userDoc.exists()) {
           const data = userDoc.data();
           setUserData(data);
-          setFollowersCount(data.followers?.length || 0); 
-          setIsFollowing(data.followers?.includes(currentAddress)); 
+          setFollowersCount(data.followers?.length || 0);
+          setIsFollowing(data.followers?.includes(currentAddress));
         } else {
           console.error("User not found");
         }
@@ -250,7 +250,7 @@ const UserProfile = ({ params }) => {
           </div>
 
           {/* Follow/Unfollow button */}
-          {currentAddress !== address && (
+          {currentAddress && currentAddress !== address && (
             <button
               onClick={handleFollowToggle}
               className={`mt-4 py-2 px-4 rounded ${
@@ -263,11 +263,19 @@ const UserProfile = ({ params }) => {
             </button>
           )}
 
+          {/* Chat Button - Disabled for Unlogged Users */}
           <button
-            onClick={handleChat}
-            className="mt-4 py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            onClick={currentAddress ? handleChat : undefined}
+            disabled={!currentAddress}
+            className={`mt-4 py-2 px-4 rounded-lg ${
+              currentAddress
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "bg-gray-500 text-white cursor-not-allowed"
+            }`}
           >
-            Chat with {userData.username || "User"}
+            {currentAddress
+              ? `Chat with ${userData.username || "User"}`
+              : "Login to Chat"}
           </button>
 
           {/* If the user is viewing their own profile, show a message instead */}

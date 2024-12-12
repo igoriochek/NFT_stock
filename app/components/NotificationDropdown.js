@@ -1,5 +1,6 @@
 import { useNotifications } from "../context/NotificationContext";
 import { useState } from "react";
+import { motion } from "framer-motion";
 
 const NotificationDropdown = () => {
   const { notifications, markAsRead } = useNotifications();
@@ -15,13 +16,20 @@ const NotificationDropdown = () => {
   };
 
   return (
-    <div className="absolute right-0 mt-2 w-72 bg-white text-black shadow-lg rounded-lg p-4">
-      <h2 className="text-lg font-semibold">Notifications</h2>
-      <div className="flex justify-between border-b pb-2">
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="absolute right-0 mt-2 w-72 bg-gray-800 text-white shadow-lg rounded-lg py-4 group-hover:block"
+      onMouseEnter={(e) => e.stopPropagation()}
+      onMouseLeave={(e) => e.stopPropagation()}
+    >
+      <h2 className="text-lg font-semibold px-4">Notifications</h2>
+      <div className="flex justify-between px-4 py-2 border-b border-gray-700">
         <button
           onClick={() => setActiveTab("unread")}
           className={`text-sm ${
-            activeTab === "unread" ? "font-bold" : "text-white"
+            activeTab === "unread" ? "font-bold text-white" : "text-white"
           }`}
         >
           Unread
@@ -29,21 +37,21 @@ const NotificationDropdown = () => {
         <button
           onClick={() => setActiveTab("all")}
           className={`text-sm ${
-            activeTab === "all" ? "font-bold" : "ttext-white"
+            activeTab === "all" ? "font-bold text-white" : "text-white"
           }`}
         >
           All
         </button>
       </div>
-      <ul className="mt-2">
+      <ul className="mt-2 px-4 space-y-2">
         {filteredNotifications.length === 0 ? (
           <li className="text-center text-white">No Notifications</li>
         ) : (
           filteredNotifications.map((notification) => (
             <li
               key={notification.id}
-              className={`p-2 rounded-md flex justify-between items-center ${
-                notification.read ? "bg-gray-200" : "bg-gray-100"
+              className={`p-2 rounded-md flex justify-between items-center hover:bg-gray-700 transition-all duration-300 ${
+                notification.read ? "bg-gray-700" : "bg-gray-600"
               }`}
             >
               <a href={notification.link} className="cursor-pointer">
@@ -52,7 +60,7 @@ const NotificationDropdown = () => {
               {!notification.read && (
                 <button
                   onClick={() => handleMarkAsRead(notification.id)}
-                  className="text-white text-sm"
+                  className="text-sm text-white hover:text-white hover:font-bold"
                 >
                   Mark as Read
                 </button>
@@ -61,7 +69,7 @@ const NotificationDropdown = () => {
           ))
         )}
       </ul>
-    </div>
+    </motion.div>
   );
 };
 

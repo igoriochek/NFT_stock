@@ -29,6 +29,7 @@ import {
   updatePriceHistory,
   getPriceHistory,
 } from "@/app/utils/firebaseStatistics";
+import { getHardhatProvider } from "@/app/utils/getHardhatProvider";
 
 ChartJS.register(
   LineElement,
@@ -53,10 +54,17 @@ const NFTDetail = () => {
   const { id } = useParams();
 
   // Use MetaMaskContext to get provider and address
-  const { isConnected, provider, address, connectMetaMask } = useMetaMask();
+  const {
+    isConnected,
+    provider: metaMaskProvider,
+    address,
+    connectMetaMask,
+  } = useMetaMask();
+  const hardhatProvider = getHardhatProvider();
+  const activeProvider = isConnected ? metaMaskProvider : hardhatProvider;
 
   useEffect(() => {
-    if (provider && id && contractAddress) {
+    if (activeProvider && id && contractAddress) {
       loadNFTDetails();
       fetchPriceHistory();
       loadBidHistory();
@@ -68,12 +76,12 @@ const NFTDetail = () => {
       const contract = new ethers.Contract(
         contractAddress,
         ArtNFT.abi,
-        provider
+        activeProvider
       );
       contract.removeAllListeners("AuctionEnded");
       contract.removeAllListeners("BidPlaced");
     };
-  }, [provider, id]);
+  }, [activeProvider, id]);
 
   const fetchPriceHistory = async () => {
     const history = await getPriceHistory(id);
@@ -85,7 +93,7 @@ const NFTDetail = () => {
       const contract = new ethers.Contract(
         contractAddress,
         ArtNFT.abi,
-        provider
+        activeProvider
       );
 
       const nftListingType = await contract.listingTypes(id);
@@ -122,7 +130,7 @@ const NFTDetail = () => {
       const contract = new ethers.Contract(
         contractAddress,
         ArtNFT.abi,
-        provider
+        activeProvider
       );
 
       // Fetch all BidPlaced events
@@ -140,7 +148,7 @@ const NFTDetail = () => {
               bidderProfile?.username || shortenAddress(bidder);
 
             // Get the block information using the block number
-            const block = await provider.getBlock(event.blockNumber);
+            const block = await activeProvider.getBlock(event.blockNumber);
             const transactionDate = new Date(block.timestamp * 1000); // Convert to milliseconds and create a date object
 
             return {
@@ -160,7 +168,11 @@ const NFTDetail = () => {
   };
 
   const listenForNewBids = () => {
-    const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+    const contract = new ethers.Contract(
+      contractAddress,
+      ArtNFT.abi,
+      activeProvider
+    );
 
     // Listen for bids only on the current NFT (filter by tokenId)
     contract.on("BidPlaced", (tokenId, bidder, amount) => {
@@ -177,7 +189,11 @@ const NFTDetail = () => {
 
   // Auction End Listener
   const listenForAuctionEnd = () => {
-    const contract = new ethers.Contract(contractAddress, ArtNFT.abi, provider);
+    const contract = new ethers.Contract(
+      contractAddress,
+      ArtNFT.abi,
+      activeProvider
+    );
 
     contract.on("AuctionEnded", async (tokenId, winner, finalBid) => {
       if (tokenId.toString() === id.toString()) {
@@ -284,55 +300,55 @@ const NFTDetail = () => {
             </div>
           </div>
         );
-        case "history":
-          return (
-            <div className="mt-6">
-              <h2 className="text-xl font-bold mb-4">Bid History Chart</h2>
-              {bids.length > 0 ? (
-                <div>
-                  <Line
-                    data={{
-                      labels: bids.map((bid) =>
-                        new Date(bid.timestamp).toLocaleString()
-                      ),
-                      datasets: [
-                        {
-                          label: "Bid Amount (ETH)",
-                          data: bids.map((bid) => parseFloat(bid.amount)),
-                          borderColor: "#4caf50",
-                          backgroundColor: "rgba(76, 175, 80, 0.2)",
-                          tension: 0.3,
-                        },
-                      ],
-                    }}
-                    options={{
-                      plugins: {
-                        legend: {
-                          labels: {
-                            color: "white",
-                          },
+      case "history":
+        return (
+          <div className="mt-6">
+            <h2 className="text-xl font-bold mb-4">Bid History Chart</h2>
+            {bids.length > 0 ? (
+              <div>
+                <Line
+                  data={{
+                    labels: bids.map((bid) =>
+                      new Date(bid.timestamp).toLocaleString()
+                    ),
+                    datasets: [
+                      {
+                        label: "Bid Amount (ETH)",
+                        data: bids.map((bid) => parseFloat(bid.amount)),
+                        borderColor: "#4caf50",
+                        backgroundColor: "rgba(76, 175, 80, 0.2)",
+                        tension: 0.3,
+                      },
+                    ],
+                  }}
+                  options={{
+                    plugins: {
+                      legend: {
+                        labels: {
+                          color: "white",
                         },
                       },
-                      scales: {
-                        x: {
-                          ticks: {
-                            color: "white",
-                          },
-                        },
-                        y: {
-                          ticks: {
-                            color: "white",
-                          },
+                    },
+                    scales: {
+                      x: {
+                        ticks: {
+                          color: "white",
                         },
                       },
-                    }}
-                  />
-                </div>
-              ) : (
-                <p>No bid history available.</p>
-              )}
-            </div>
-          );
+                      y: {
+                        ticks: {
+                          color: "white",
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            ) : (
+              <p>No bid history available.</p>
+            )}
+          </div>
+        );
       default:
         return null;
     }
@@ -345,24 +361,6 @@ const NFTDetail = () => {
   const isAuctionEnded = Math.floor(Date.now() / 1000) >= nft.endTime;
   const minBid =
     parseFloat(ethers.utils.formatUnits(nft.highestBid, "ether")) + 0.1;
-
-  // If MetaMask is not connected, prompt to connect
-  if (!isConnected) {
-    return (
-      <div className="container mx-auto px-4 py-8 text-center text-white">
-        <h1 className="text-3xl font-bold mb-6">NFT Details</h1>
-        <p className="mb-6">
-          Please connect to MetaMask to view NFT details and place bids.
-        </p>
-        <button
-          onClick={connectMetaMask}
-          className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg"
-        >
-          Connect MetaMask
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto p-8">
@@ -378,9 +376,7 @@ const NFTDetail = () => {
           <div className="flex justify-between mt-6">
             <div className="text-center">
               <p className="text-sm font-bold text-gray-400 ">Owner:</p>
-              <p className="text-xs text-white">
-                {shortenAddress(nft.owner)}
-              </p>
+              <p className="text-xs text-white">{shortenAddress(nft.owner)}</p>
             </div>
           </div>
 
@@ -404,30 +400,39 @@ const NFTDetail = () => {
           <div className="mt-4">
             <button
               className={`py-3 px-4 rounded-lg ${
+                !isConnected ||
                 isAuctionEnded ||
-                nft.owner.toLowerCase() === address.toLowerCase() // Disable button if auction ended or user is the owner
+                nft?.owner?.toLowerCase() === address?.toLowerCase()
                   ? "bg-gray-500 cursor-not-allowed"
                   : "bg-blue-500 hover:bg-blue-600"
               } text-white transition-all`}
               onClick={() =>
+                isConnected &&
                 !isAuctionEnded &&
-                nft.owner.toLowerCase() !== address.toLowerCase() &&
+                nft?.owner?.toLowerCase() !== address?.toLowerCase() &&
                 setShowModal(true)
-              } // Prevent click if auction ended or owner is trying to bid
+              }
               disabled={
+                !isConnected ||
                 isAuctionEnded ||
-                nft.owner.toLowerCase() === address.toLowerCase()
-              } // Disable button
+                nft?.owner?.toLowerCase() === address?.toLowerCase()
+              }
               title={
-                isAuctionEnded
+                !isConnected
+                  ? "Connect MetaMask to place a bid"
+                  : isAuctionEnded
                   ? "You cannot bid on ended auction"
-                  : nft.owner.toLowerCase() === address.toLowerCase()
+                  : nft?.owner?.toLowerCase() === address?.toLowerCase()
                   ? "You cannot bid on your own NFT"
-                  : ""
+                  : "Place a bid"
               }
             >
-              {nft.owner.toLowerCase() === address.toLowerCase()
+              {!isConnected
+                ? "Connect Wallet"
+                : nft?.owner?.toLowerCase() === address?.toLowerCase()
                 ? "Owner cannot bid"
+                : isAuctionEnded
+                ? "Auction Ended"
                 : "Place a Bid"}
             </button>
           </div>
@@ -467,7 +472,7 @@ const NFTDetail = () => {
         <PlaceBidModal
           nft={nft}
           closeModal={() => setShowModal(false)}
-          provider={provider}
+          activeProvider={activeProvider}
           contractAddress={contractAddress}
           refreshAuctions={loadNFTDetails}
           minBid={minBid} // Pass dynamic minBid to the modal

@@ -6,7 +6,22 @@ import { useRouter } from "next/navigation"; // Import router for redirection
 
 const MetaMaskContext = createContext();
 
-export const useMetaMask = () => useContext(MetaMaskContext);
+// Custom Hook: Includes ensureConnected logic
+export const useMetaMask = () => {
+  const context = useContext(MetaMaskContext);
+
+  if (!context)
+    throw new Error("useMetaMask must be used within a MetaMaskProvider");
+
+  const ensureConnected = (router) => {
+    if (!context.isConnected) {
+      alert("Please connect MetaMask to access this page.");
+      router.push("/");
+    }
+  };
+
+  return { ...context, ensureConnected };
+};
 
 export const MetaMaskProvider = ({ children }) => {
   const [address, setAddress] = useState(null);
@@ -14,7 +29,9 @@ export const MetaMaskProvider = ({ children }) => {
   const [balance, setBalance] = useState(null); // Store balance
   const [isConnected, setIsConnected] = useState(false);
   const [username, setUsername] = useState(null);
-  const [profilePicture, setProfilePicture] = useState("/images/default-avatar.png");
+  const [profilePicture, setProfilePicture] = useState(
+    "/images/default-avatar.png"
+  );
   const [likedArtworks, setLikedArtworks] = useState([]);
   const [following, setFollowing] = useState([]);
   const router = useRouter(); // Initialize router for redirection
@@ -40,7 +57,9 @@ export const MetaMaskProvider = ({ children }) => {
         if (userSnap.exists()) {
           const userProfile = userSnap.data();
           setUsername(userProfile.username);
-          setProfilePicture(userProfile.profilePicture || "/images/default-avatar.png");
+          setProfilePicture(
+            userProfile.profilePicture || "/images/default-avatar.png"
+          );
           setLikedArtworks(userProfile.likedArtworks || []);
           setFollowing(userProfile.following || []);
         } else {
@@ -63,7 +82,7 @@ export const MetaMaskProvider = ({ children }) => {
     setUsername(null);
     setProfilePicture("/images/default-avatar.png");
     setIsConnected(false);
-    
+
     // Optionally reload the page to clear any cached state
     window.location.reload();
   };
@@ -90,7 +109,9 @@ export const MetaMaskProvider = ({ children }) => {
           if (userSnap.exists()) {
             const userProfile = userSnap.data();
             setUsername(userProfile.username);
-            setProfilePicture(userProfile.profilePicture || "/images/default-avatar.png");
+            setProfilePicture(
+              userProfile.profilePicture || "/images/default-avatar.png"
+            );
             setLikedArtworks(userProfile.likedArtworks || []);
             setFollowing(userProfile.following || []);
           } else {
@@ -105,7 +126,20 @@ export const MetaMaskProvider = ({ children }) => {
   }, []);
 
   return (
-    <MetaMaskContext.Provider value={{ address, username, isConnected, balance, profilePicture, likedArtworks, following, connectMetaMask, disconnectMetaMask, provider }}>
+    <MetaMaskContext.Provider
+      value={{
+        address,
+        username,
+        isConnected,
+        balance,
+        profilePicture,
+        likedArtworks,
+        following,
+        connectMetaMask,
+        disconnectMetaMask,
+        provider,
+      }}
+    >
       {children}
     </MetaMaskContext.Provider>
   );
