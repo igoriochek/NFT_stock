@@ -3,42 +3,68 @@ import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import NFTCard from './NFTCard';
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
+import FilterPanel from './FilterPanel';
 
 const Auction = ({ provider, contractAddress, currentAddress }) => {
   const [auctions, setAuctions] = useState([]);
   const [filteredAuctions, setFilteredAuctions] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [selectedCategories, setSelectedCategories] = useState([]);
   const [localProvider, setLocalProvider] = useState(null);
+  const [filters, setFilters] = useState({
+    selectedCategories: [],
+    priceRange: [0, 100],
+    sortOrder: 'newest',
+  });
 
+  // Use Hardhat local provider if MetaMask is not connected
   useEffect(() => {
-    // Use Hardhat local provider if MetaMask is not connected
     if (!provider && !localProvider) {
       const hardhatProvider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545');
       setLocalProvider(hardhatProvider);
     }
   }, [provider]);
 
-  useEffect(() => {
-    if (provider || localProvider) {
-      loadAuctions();
-    }
-  }, [provider, localProvider]);
+  const activeProvider = provider || localProvider;
 
   useEffect(() => {
-    if (selectedCategories.length === 0) {
-      setFilteredAuctions(auctions);
-    } else {
-      const filtered = auctions.filter((auction) =>
-        auction.categories.some((cat) => selectedCategories.includes(cat))
-      );
-      setFilteredAuctions(filtered);
+    if (activeProvider) {
+      loadAuctions();
     }
-  }, [selectedCategories, auctions]);
+  }, [activeProvider]);
+
+  useEffect(() => {
+    let filtered = auctions;
+
+    // Filter by categories
+    if (filters.selectedCategories.length > 0) {
+      filtered = filtered.filter((auction) =>
+        auction.categories.some((cat) => filters.selectedCategories.includes(cat))
+      );
+    }
+
+    // Filter by price range
+    filtered = filtered.filter(
+      (auction) =>
+        ethers.utils.formatUnits(auction.highestBid, 'ether') >= filters.priceRange[0] &&
+        ethers.utils.formatUnits(auction.highestBid, 'ether') <= filters.priceRange[1]
+    );
+
+    // Sort by selected order
+    if (filters.sortOrder === 'low_to_high') {
+      filtered.sort((a, b) => a.highestBid.sub(b.highestBid));
+    } else if (filters.sortOrder === 'high_to_low') {
+      filtered.sort((a, b) => b.highestBid.sub(a.highestBid));
+    } else if (filters.sortOrder === 'newest') {
+      filtered.sort((a, b) => b.id - a.id);
+    } else if (filters.sortOrder === 'oldest') {
+      filtered.sort((a, b) => a.id - b.id);
+    }
+
+    setFilteredAuctions(filtered);
+  }, [filters, auctions]);
 
   const loadAuctions = async () => {
     try {
-      const activeProvider = provider || localProvider;
       if (!activeProvider) return;
 
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, activeProvider);
@@ -64,7 +90,7 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
             highestBidder,
             highestBid: ethers.BigNumber.isBigNumber(highestBid)
               ? highestBid
-              : ethers.BigNumber.from(highestBid || "0"),
+              : ethers.BigNumber.from(highestBid || '0'),
             endTime,
             owner,
             categories: nftCategories,
@@ -83,37 +109,14 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
     }
   };
 
-  const toggleCategory = (category) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((cat) => cat !== category)
-        : [...prev, category]
-    );
-  };
-
   return (
     <div className="w-full px-4 lg:px-16">
       <h1 className="text-5xl font-bold text-gray-100 text-center my-8">Live Auctions</h1>
 
-      {/* Category Filter */}
-      <div className="bg-gray-900 p-4 rounded-lg mb-8">
-        <h2 className="text-lg font-bold text-gray-300 mb-4">Filter by Categories</h2>
-        <div className="flex flex-wrap gap-4">
-          {categories.map((category, index) => (
-            <button
-              key={index}
-              className={`px-4 py-2 rounded-lg border ${
-                selectedCategories.includes(category)
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300'
-              }`}
-              onClick={() => toggleCategory(category)}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      </div>
+      <FilterPanel
+        categories={categories}
+        onFilterChange={(newFilters) => setFilters(newFilters)}
+      />
 
       {/* Auction Items */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
@@ -128,7 +131,9 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
             </div>
           ))
         ) : (
-          <p className="text-center col-span-full text-gray-400">No active auctions matching the selected filters.</p>
+          <p className="text-center col-span-full text-gray-400">
+            No active auctions matching the selected filters.
+          </p>
         )}
       </div>
     </div>

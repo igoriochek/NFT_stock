@@ -1,12 +1,21 @@
 Searching:
 Add searching mechanism
-Add filters (date, price)
+Add filters (date, price) +
 
 Bugs:
-Modal wallet connection +
+No bugs for now
 
 Upgrades:
 Upgrade header design +/-
-Add link from nft to creators +
-Remove mark as read (notifications) +
+
+Design:
+Improve color palette
+NFT image sizes
+Improve overall responsive design
+Improve creator profile page design
+
+
+(Optional):
+WalletDashboard for transaction statistics
+Animations while exploring home page sections
 

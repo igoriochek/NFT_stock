@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import NFTCard from './NFTCard';
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
+import FilterPanel from './FilterPanel';
 
 const Market = ({ provider, contractAddress, currentAddress }) => {
   const [listedNFTs, setListedNFTs] = useState([]);
@@ -10,6 +11,12 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [localProvider, setLocalProvider] = useState(null);
+  const [filters, setFilters] = useState({
+    selectedCategories: [],
+    priceRange: [0, 100],
+    sortOrder: 'newest',
+  });
+  
 
   // Use Hardhat local provider if MetaMask is not connected
   useEffect(() => {
@@ -30,15 +37,37 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
   }, [activeProvider]);
 
   useEffect(() => {
-    if (selectedCategories.length === 0) {
-      setFilteredNFTs(listedNFTs);
-    } else {
-      const filtered = listedNFTs.filter((nft) =>
-        nft.categories.some((cat) => selectedCategories.includes(cat))
+    let filtered = listedNFTs;
+  
+    // Filter by categories
+    if (filters.selectedCategories.length > 0) {
+      filtered = filtered.filter((nft) =>
+        nft.categories.some((cat) =>
+          filters.selectedCategories.includes(cat)
+        )
       );
-      setFilteredNFTs(filtered);
     }
-  }, [selectedCategories, listedNFTs]);
+  
+    // Filter by price range
+    filtered = filtered.filter(
+      (nft) =>
+        parseFloat(nft.price) >= filters.priceRange[0] &&
+        parseFloat(nft.price) <= filters.priceRange[1]
+    );
+  
+    // Sort by selected order
+    if (filters.sortOrder === 'low_to_high') {
+      filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+    } else if (filters.sortOrder === 'high_to_low') {
+      filtered.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+    } else if (filters.sortOrder === 'newest') {
+      filtered.sort((a, b) => b.id - a.id);
+    } else if (filters.sortOrder === 'oldest') {
+      filtered.sort((a, b) => a.id - b.id);
+    }
+  
+    setFilteredNFTs(filtered);
+  }, [filters, listedNFTs]);
 
   const loadListedNFTs = async () => {
     try {
@@ -98,27 +127,10 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
         Market
       </h1>
 
-      {/* Category Filter */}
-      <div className="bg-gray-800 p-4 rounded-lg mb-8">
-        <h2 className="text-lg font-bold text-gray-300 mb-4">
-          Filter by Categories
-        </h2>
-        <div className="flex flex-wrap gap-4">
-          {categories.map((category, index) => (
-            <button
-              key={index}
-              className={`px-4 py-2 rounded-lg border ${
-                selectedCategories.includes(category)
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300'
-              }`}
-              onClick={() => toggleCategory(category)}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      </div>
+      <FilterPanel
+    categories={categories}
+    onFilterChange={(newFilters) => setFilters(newFilters)}
+  />
 
       {/* NFT Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">

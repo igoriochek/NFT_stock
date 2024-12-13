@@ -38,7 +38,7 @@ const HomePage = () => {
       </section>
 
       {/* Market Section */}
-      <section className="w-full px-4 lg:px-16 py-16">
+      <section className="w-full px-4 lg:px-16 py-16 bg-slate-950 mb-8 mt-8">
         <Market
           provider={provider}
           contractAddress={contractAddress}
@@ -48,7 +48,7 @@ const HomePage = () => {
       </section>
 
       {/* Auctions Section */}
-      <section className="bg-gray-800 py-16 w-full px-4 lg:px-16">
+      <section className="bg-slate-950 py-16 w-full px-4 lg:px-16 mb-8 mt-8">
         <Auction
           provider={provider}
           contractAddress={contractAddress}
@@ -58,7 +58,7 @@ const HomePage = () => {
       </section>
 
       {/* Featured Creators Section */}
-      <section className="w-full px-4 lg:px-16 py-16">
+      <section className="bg-slate-950 w-full px-4 lg:px-16 py-16 mb-8 mt-8">
         <CreatorsSection />
       </section>
     </div>
