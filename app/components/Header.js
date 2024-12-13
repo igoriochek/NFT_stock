@@ -212,7 +212,7 @@ const Header = () => {
                       <Link href="/upload">My Items</Link>
                     </li>
                     <li className="py-1 hover:bg-gray-700">
-                      <Link href="/funds">Manage Funds</Link>
+                      <Link href="/wallet">Manage Funds</Link>
                     </li>
                     <li className="py-1 hover:bg-gray-700">
                       <button onClick={disconnectMetaMask}>Disconnect</button>

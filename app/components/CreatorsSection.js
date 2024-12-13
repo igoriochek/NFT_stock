@@ -13,7 +13,6 @@ const CreatorsSection = ({ followingList }) => {
   useEffect(() => {
     const fetchCreators = async () => {
       try {
-        // Check if we need to filter by following list or show all users
         const usersCollection = collection(db, "users");
         let userQuery;
 
@@ -69,7 +68,7 @@ const CreatorsSection = ({ followingList }) => {
                   creator.profilePicture || "https://via.placeholder.com/72x72"
                 }
                 alt={creator.username}
-                className="w-18 h-18 rounded-full mb-2 cursor-pointer"
+                className="w-20 h-20 rounded-full mb-2 cursor-pointer object-cover"
               />
             </Link>
             <Link href={`/creators/${creator.address}`} passHref>

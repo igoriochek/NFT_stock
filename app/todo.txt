@@ -1,15 +1,12 @@
-NFTS:
-Fix bug of listed NFTS (When listed in market, it also shows detailed auction page) +
-Add categories while minting NFTS +
-
-Notifications:
-Add notifications mechanism +
-
-Statistics:
-Add Statistics like earnings.. +
-
 Searching:
 Add searching mechanism
+Add filters (date, price)
 
-Freedom of metamask:
-Let users explore arts and creators without metamask, but do not let do any actions +
+Bugs:
+Modal wallet connection +
+
+Upgrades:
+Upgrade header design +/-
+Add link from nft to creators +
+Remove mark as read (notifications) +
+

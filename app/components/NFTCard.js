@@ -190,16 +190,20 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
       </div>
 
       <div className="flex items-center justify-between mt-4">
-        <div className="flex items-center space-x-2">
-          <img
-            src={ownerProfilePicture || "/images/default-avatar.png"}
-            alt={ownerUsername}
-            className="w-9 h-9 rounded-full border-2 border-blue-400 object-cover"
-          />
-          <span className="text-sm font-medium text-gray-700 truncate w-32">
-            {ownerUsername || shortenAddress(nft.owner)}{" "}
-            {/* Display the owner's username or fallback to address */}
-          </span>
+        <div className="flex items-center space-x-4">
+          <Link href={`/creators/${nft.owner}`} passHref>
+            <div className="flex items-center gap-2 cursor-pointer">
+              <img
+                src={ownerProfilePicture || "/images/default-avatar.png"}
+                alt={ownerUsername}
+                className="w-9 h-9 rounded-full border-2 border-blue-400 object-cover"
+              />
+              <span className="text-sm font-medium text-gray-700 hover:underline truncate w-32 ">
+                {ownerUsername || shortenAddress(nft.owner)}{" "}
+                {/* Display the owner's username or fallback to address */}
+              </span>
+            </div>
+          </Link>
         </div>
 
         <div className="flex items-center space-x-1">

@@ -75,7 +75,7 @@ const WalletDashboard = ({ provider, contractAddress }) => {
 
   return (
     <div className="container mx-auto p-8">
-      <h1 className="text-4xl font-bold text-gray-800 mb-8">Wallet Dashboard</h1>
+      <h1 className="text-4xl font-bold text-white mb-8">Wallet Dashboard</h1>
 
       {/* Error Display */}
       {error && <p className="text-red-600">{error}</p>}
@@ -88,7 +88,7 @@ const WalletDashboard = ({ provider, contractAddress }) => {
 
       {/* Your NFTs Section */}
       <section className="mb-12">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Your NFTs</h2>
+        <h2 className="text-2xl font-bold text-white mb-4">Your NFTs</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {nfts.length > 0 ? (
             nfts.map((nft) => (
@@ -106,10 +106,10 @@ const WalletDashboard = ({ provider, contractAddress }) => {
 
       {/* Recent Transactions Section */}
       <section>
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Recent Transactions</h2>
+        <h2 className="text-2xl font-bold text-white mb-4">Recent Transactions</h2>
         {transactions.length > 0 ? (
           <table className="table-auto w-full text-left bg-white rounded-lg shadow-md">
-            <thead className="bg-gray-100">
+            <thead className="bg-gray-100 text-gray-800">
               <tr>
                 <th className="px-4 py-2">Tx Hash</th>
                 <th className="px-4 py-2">Date</th>
@@ -119,7 +119,7 @@ const WalletDashboard = ({ provider, contractAddress }) => {
             </thead>
             <tbody>
               {transactions.map((tx, index) => (
-                <tr key={index} className="border-t">
+                <tr key={index} className="border-t text-gray-800">
                   <td className="px-4 py-2">{tx.txHash}</td>
                   <td className="px-4 py-2">{tx.date}</td>
                   <td className="px-4 py-2">{tx.amount}</td>

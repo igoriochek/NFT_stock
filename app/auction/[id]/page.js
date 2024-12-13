@@ -472,7 +472,7 @@ const NFTDetail = () => {
         <PlaceBidModal
           nft={nft}
           closeModal={() => setShowModal(false)}
-          activeProvider={activeProvider}
+          provider={activeProvider}
           contractAddress={contractAddress}
           refreshAuctions={loadNFTDetails}
           minBid={minBid} // Pass dynamic minBid to the modal
