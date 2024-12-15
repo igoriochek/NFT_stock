@@ -4,32 +4,34 @@ import { ethers } from 'ethers';
 import NFTCard from './NFTCard';
 import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 import FilterPanel from './FilterPanel';
+import { getHardhatProvider } from '../utils/getHardhatProvider';
 
 const Market = ({ provider, contractAddress, currentAddress }) => {
   const [listedNFTs, setListedNFTs] = useState([]);
   const [filteredNFTs, setFilteredNFTs] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [localProvider, setLocalProvider] = useState(null);
   const [filters, setFilters] = useState({
     selectedCategories: [],
     priceRange: [0, 100],
     sortOrder: 'newest',
   });
-  
+  const [activeProvider, setActiveProvider] = useState(null);
 
-  // Use Hardhat local provider if MetaMask is not connected
+  // Initialize provider only once
   useEffect(() => {
-    if (!provider && !localProvider) {
-      const hardhatProvider = new ethers.providers.JsonRpcProvider(
-        'http://127.0.0.1:8545'
-      );
-      setLocalProvider(hardhatProvider);
-    }
+    const initProvider = () => {
+      if (provider) {
+        setActiveProvider(provider);
+      } else {
+        const hardhatProvider = getHardhatProvider();
+        setActiveProvider(hardhatProvider);
+      }
+    };
+
+    initProvider();
   }, [provider]);
 
-  const activeProvider = provider || localProvider;
-
+  // Load NFTs on provider change
   useEffect(() => {
     if (activeProvider) {
       loadListedNFTs();
@@ -38,7 +40,7 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
 
   useEffect(() => {
     let filtered = listedNFTs;
-  
+
     // Filter by categories
     if (filters.selectedCategories.length > 0) {
       filtered = filtered.filter((nft) =>
@@ -47,14 +49,14 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
         )
       );
     }
-  
+
     // Filter by price range
     filtered = filtered.filter(
       (nft) =>
         parseFloat(nft.price) >= filters.priceRange[0] &&
         parseFloat(nft.price) <= filters.priceRange[1]
     );
-  
+
     // Sort by selected order
     if (filters.sortOrder === 'low_to_high') {
       filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
@@ -65,7 +67,7 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
     } else if (filters.sortOrder === 'oldest') {
       filtered.sort((a, b) => a.id - b.id);
     }
-  
+
     setFilteredNFTs(filtered);
   }, [filters, listedNFTs]);
 
@@ -113,14 +115,6 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
     }
   };
 
-  const toggleCategory = (category) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((cat) => cat !== category)
-        : [...prev, category]
-    );
-  };
-
   return (
     <div className="w-full px-4 lg:px-16">
       <h1 className="text-5xl font-bold text-gray-100 text-center my-8">
@@ -128,9 +122,9 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
       </h1>
 
       <FilterPanel
-    categories={categories}
-    onFilterChange={(newFilters) => setFilters(newFilters)}
-  />
+        categories={categories}
+        onFilterChange={(newFilters) => setFilters(newFilters)}
+      />
 
       {/* NFT Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">

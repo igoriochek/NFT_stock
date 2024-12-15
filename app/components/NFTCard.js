@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore"; // Firebase Firestore functions
 import { db } from "../firebase"; // Firebase initialization
 import Link from "next/link";
@@ -6,6 +6,7 @@ import { shortenAddress } from "../utils/shortenAddress"; // Utility to shorten 
 import { ethers } from "ethers"; // Needed for ETH conversion
 import { getUserProfileByAddress } from "../utils/firebaseUtils"; // Utility function for fetching username
 import { createLikeNotification } from "@/app/utils/notifications"; // Import the notification function
+import VanillaTilt from "vanilla-tilt";
 
 const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
   const [timeLeft, setTimeLeft] = useState("");
@@ -15,6 +16,7 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
   const [ownerProfilePicture, setOwnerProfilePicture] = useState(
     "/images/default-avatar.png"
   ); // State for owner profile picture
+  const tiltRef = useRef(null);
 
   // Fetch the likes count and user liked status when the page loads
   useEffect(() => {
@@ -171,9 +173,21 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
     }
   };
 
+  useEffect(() => {
+    if (tiltRef.current) {
+      VanillaTilt.init(tiltRef.current, {
+        max: 25,          // Max tilt angle
+        speed: 400,       // Animation speed
+        glare: true,      // Enable glare effect
+        "max-glare": 0.3, // Max glare opacity
+        scale: 1.05,      // Slight zoom on hover
+      });
+    }
+  }, []);
+
   return (
     <div className="bg-white shadow-lg rounded-xl overflow-hidden p-4 w-full max-w-full mx-auto transition-transform transform hover:scale-105">
-      <div className="relative">
+      <div ref={tiltRef} className="img-tilt relative rounded-lg overflow-hidden">
         <Link href={isAuction ? `/auction/${nft?.id}` : `/market/${nft?.id}`}>
           <img
             src={nft?.image || "https://via.placeholder.com/565x551"}
