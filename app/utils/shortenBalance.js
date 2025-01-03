@@ -1,5 +1,3 @@
-// utils/shortenBalance.js
-
 export const shortenBalance = (balance, decimals = 4) => {
     if (!balance) return '0';
     

@@ -30,7 +30,7 @@ const PlaceBidModal = ({ nft, closeModal, provider, contractAddress, refreshAuct
       const signer = provider.getSigner();
       const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
   
-      // Correctly parse bidAmount as BigNumber
+      
       const parsedBidAmount = ethers.utils.parseEther(bidAmount.toString());
   
       const transaction = await contract.placeBid(nft.id, {

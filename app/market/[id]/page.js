@@ -45,7 +45,7 @@ const MarketNFTDetail = () => {
 
   const { id } = useParams();
 
-  // Use MetaMaskContext to get provider, current address, and connection state
+
   const {
     isConnected,
     provider: metaMaskProvider,

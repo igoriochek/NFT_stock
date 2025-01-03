@@ -1,5 +1,3 @@
-// Location: utils/chatUtils.js
-
 import { db } from '../firebase';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 

@@ -3,7 +3,7 @@ import { useMetaMask } from '../context/MetaMaskContext'; // Import MetaMaskCont
 import Market from '../components/Market'; // Import Market component
 
 const MarketPage = () => {
-  const { provider, address } = useMetaMask(); // Access provider from MetaMaskContext
+  const { provider, address } = useMetaMask();
 
   const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 

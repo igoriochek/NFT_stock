@@ -1,4 +1,3 @@
-// modals/SellModal.js
 import React, { useState } from 'react';
 
 const SellModal = ({ closeModal, confirmSell }) => {

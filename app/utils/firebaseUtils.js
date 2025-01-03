@@ -7,7 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 // Fetch user profile from Firebase using wallet address
 export const getUserProfileByAddress = async (walletAddress) => {
   try {
-    const userRef = doc(db, "users", walletAddress); // No need to lowercase the wallet address
+    const userRef = doc(db, "users", walletAddress);
     const userDoc = await getDoc(userRef);
 
     if (userDoc.exists()) {
@@ -35,7 +35,7 @@ async function uploadProfileImage(file, walletAddress) {
     const downloadURL = await getDownloadURL(snapshot.ref);
 
     // Save the download URL to Firestore under the user's document
-    const userRef = doc(db, "users", walletAddress); // Assuming wallet address is used as the ID in the "users" collection
+    const userRef = doc(db, "users", walletAddress);
     await updateDoc(userRef, {
       profilePicture: downloadURL, // Update the profilePicture field in Firestore
     });

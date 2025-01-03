@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"; // Import router for redirection
 
 const MetaMaskContext = createContext();
 
-// Custom Hook: Includes ensureConnected logic
 export const useMetaMask = () => {
   const context = useContext(MetaMaskContext);
 
@@ -83,7 +82,6 @@ export const MetaMaskProvider = ({ children }) => {
     setProfilePicture("/images/default-avatar.png");
     setIsConnected(false);
 
-    // Optionally reload the page to clear any cached state
     window.location.reload();
   };
 

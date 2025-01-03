@@ -1,4 +1,3 @@
-// modals/AuctionModal.js
 import React, { useState } from 'react';
 
 const AuctionModal = ({ closeModal, confirmAuction }) => {

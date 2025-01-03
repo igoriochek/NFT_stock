@@ -1,4 +1,3 @@
-// Location: components/ChatWindow.js
 
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';

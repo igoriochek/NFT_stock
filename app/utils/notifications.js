@@ -1,4 +1,3 @@
-// utils/notifications.js
 import { db } from "../firebase";
 import {
   doc,

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { doc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../firebase"; // Ensure that your firebase is set up correctly
+import { db, storage } from "../firebase";
 import { useSearchParams, useRouter } from "next/navigation";
 
 const ProfileCompletionForm = ({ address }) => {
