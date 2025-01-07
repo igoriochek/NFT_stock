@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+
 import axios from "axios";
 import { ethers } from "ethers";
 import { useMetaMask } from "../context/MetaMaskContext";
@@ -21,6 +22,8 @@ const Upload = () => {
   const [showAuctionModal, setShowAuctionModal] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState(null);
   const [nfts, setNfts] = useState([]);
+  const [loading, setLoading] = useState(false);
+
 
   const {
     isConnected,
@@ -29,7 +32,6 @@ const Upload = () => {
     connectMetaMask,
   } = useMetaMask();
 
-  // Function to handle file upload to Pinata (IPFS)
   const onChange = async (e) => {
     const file = e.target.files[0];
     try {
@@ -51,77 +53,11 @@ const Upload = () => {
       console.error("Error uploading file:", error);
     }
   };
-
-  // Function to handle category selection
-  const handleCategoryChange = (category, isChecked) => {
-    if (isChecked) {
-      setSelectedCategories([...selectedCategories, category]);
-    } else {
-      setSelectedCategories(
-        selectedCategories.filter((item) => item !== category)
-      );
-    }
-  };
-
-  // Function to mint the NFT and create a Firebase document
-  const uploadAndMint = async () => {
-    const { title, description } = formInput;
-    if (!title || !description || !fileUrl || selectedCategories.length === 0)
-      return;
-
-    const data = {
-      pinataMetadata: { name: title },
-      pinataContent: {
-        title,
-        description,
-        image: fileUrl,
-        creator: currentAddress,
-        categories: selectedCategories,
-      },
-    };
-
+  const refreshNFTs = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await axios.post(
-        "https://api.pinata.cloud/pinning/pinJSONToIPFS",
-        data,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${pinataJwt}`,
-          },
-        }
-      );
-      const url = `https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}`;
+      if (!provider) return;
 
-      if (!provider) {
-        alert("Please connect to MetaMask first.");
-        return;
-      }
-
-      const network = await provider.getNetwork();
-      if (network.chainId !== EXPECTED_CHAIN_ID) {
-        alert("Please connect to the correct network.");
-        return;
-      }
-
-      const signer = provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-      let transaction = await contract.mint(url);
-      await transaction.wait();
-
-      await incrementMintedCount(currentAddress);
-
-      alert("NFT Minted Successfully!");
-      refreshNFTs();
-    } catch (error) {
-      console.error("Error uploading or minting:", error);
-      alert(`Error: ${error.message}`);
-    }
-  };
-
-  // Function to refresh NFTs
-  const refreshNFTs = async () => {
-    try {
       const contract = new ethers.Contract(
         contractAddress,
         ArtNFT.abi,
@@ -149,46 +85,166 @@ const Upload = () => {
           }
         }
       }
-      setNfts(items);
+
+      setNfts((prevNfts) => {
+        const isSame = JSON.stringify(prevNfts) === JSON.stringify(items);
+        return isSame ? prevNfts : items;
+      });
     } catch (error) {
-      console.error("Error loading NFTs:", error);
+      console.error("Error refreshing NFT gallery:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [provider, currentAddress]);
+
+  const appendNewNFT = async (tokenId) => {
+    try {
+      const contract = new ethers.Contract(
+        contractAddress,
+        ArtNFT.abi,
+        provider
+      );
+      const owner = await contract.ownerOf(tokenId);
+      if (owner.toLowerCase() === currentAddress.toLowerCase()) {
+        const tokenURI = await contract.tokenURI(tokenId);
+        const listed = await contract.listedTokens(tokenId);
+        const [auctionActive] = await contract.getAuctionDetails(tokenId);
+
+        const response = await fetch(tokenURI);
+        if (response.ok) {
+          const metadata = await response.json();
+          const newNFT = { id: tokenId, metadata, listed, auctionActive };
+          setNfts((prevNfts) => [...prevNfts, newNFT]);
+        }
+      }
+    } catch (error) {
+      console.error("Error appending new NFT:", error);
     }
   };
 
+  const uploadAndMint = async () => {
+    const { title, description } = formInput;
+    if (!title || !description || !fileUrl || selectedCategories.length === 0) {
+      alert("Please fill in all fields.");
+      return;
+    }
+
+    try {
+      const data = {
+        pinataMetadata: { name: title },
+        pinataContent: {
+          title,
+          description,
+          image: fileUrl,
+          creator: currentAddress,
+          categories: selectedCategories,
+        },
+      };
+
+      const res = await axios.post(
+        "https://api.pinata.cloud/pinning/pinJSONToIPFS",
+        data,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${pinataJwt}`,
+          },
+        }
+      );
+
+      const url = `https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}`;
+      const signer = provider.getSigner();
+      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
+      const transaction = await contract.mint(url);
+      const receipt = await transaction.wait();
+      const tokenId = receipt.events[0].args.tokenId.toNumber();
+
+      alert("NFT Minted Successfully!");
+      await appendNewNFT(tokenId);
+      await incrementMintedCount(currentAddress);
+      await refreshNFTs();
+    } catch (error) {
+      console.error("Error during minting process:", error);
+      alert(`Error: ${error.message}`);
+    }
+  };
+  
+  // Function to handle category selection
+  const handleCategoryChange = (category, isChecked) => {
+    if (isChecked) {
+      setSelectedCategories([...selectedCategories, category]);
+    } else {
+      setSelectedCategories(
+        selectedCategories.filter((item) => item !== category)
+      );
+    }
+  };
+  
   const handleSellNFT = async (price) => {
     if (!provider) {
       alert("Please connect to MetaMask first.");
       return;
     }
-
-    const signer = provider.getSigner();
-    const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-    await contract.listForSale(selectedTokenId, ethers.utils.parseEther(price));
-    alert("NFT Listed for Sale!");
-
-    setShowSellModal(false);
-    refreshNFTs();
+  
+    try {
+      setLoading(true);
+      const signer = provider.getSigner();
+      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
+  
+      const transaction = await contract.listForSale(selectedTokenId, ethers.utils.parseEther(price));
+      await transaction.wait(); // Wait for the transaction to be mined
+  
+      alert("NFT Listed for Sale!");
+      await refreshNFTs(); // Refresh the gallery after the transaction is confirmed
+    } catch (error) {
+      console.error("Error listing NFT for sale:", error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setShowSellModal(false);
+    }
   };
+  
+  
 
   const handleStartAuction = async (duration) => {
     if (!provider) {
       alert("Please connect to MetaMask first.");
       return;
     }
-
-    const signer = provider.getSigner();
-    const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
-    await contract.startAuction(selectedTokenId, duration);
-    alert("Auction Started!");
-
-    setShowAuctionModal(false);
-    refreshNFTs();
+  
+    try {
+      setLoading(true);
+      const signer = provider.getSigner();
+      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
+  
+      const transaction = await contract.startAuction(selectedTokenId, duration);
+      await transaction.wait(); // Wait for the transaction to be mined
+  
+      alert("Auction Started!");
+      await refreshNFTs(); // Refresh the gallery after the transaction is confirmed
+    } catch (error) {
+      console.error("Error starting auction:", error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setShowAuctionModal(false);
+    }
   };
+  
+  
+
+  useEffect(() => {
+    if (isConnected && provider) refreshNFTs();
+  }, [isConnected, provider]);
+  
 
   if (!isConnected) {
     return (
       <div className="container mx-auto px-4 py-8 text-center text-white">
-        <h1 className="text-3xl text-white font-bold mb-6">Upload and Mint Your NFT</h1>
+        <h1 className="text-3xl text-white font-bold mb-6">
+          Upload and Mint Your NFT
+        </h1>
         <p className="mb-6">Please connect to MetaMask to proceed.</p>
         <button
           onClick={connectMetaMask}
@@ -250,37 +306,39 @@ const Upload = () => {
           </div>
 
           <div>
-  <label className="block text-gray-300 mb-2">Select Categories</label>
-  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4">
-    {[
-      "Photography",
-      "Painting",
-      "Sculpture",
-      "Digital Art",
-      "Portrait",
-      "Animal",
-      "Plant",
-      "Vehicle",
-      "Landscape",
-    ].map((category, index) => (
-      <label
-        key={index}
-        className="flex items-center space-x-2 text-gray-300 bg-gray-700 py-3 px-3 rounded-lg hover:bg-gray-600 transition"
-      >
-        <input
-          type="checkbox"
-          value={category}
-          className="form-checkbox h-4 w-4 text-blue-600 focus:ring focus:ring-blue-500 rounded"
-          style={{ margin: 0 }}
-          onChange={(e) =>
-            handleCategoryChange(category, e.target.checked)
-          }
-        />
-        <span className="text-sm leading-none">{category}</span>
-      </label>
-    ))}
-  </div>
-</div>
+            <label className="block text-gray-300 mb-2">
+              Select Categories
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4">
+              {[
+                "Photography",
+                "Painting",
+                "Sculpture",
+                "Digital Art",
+                "Portrait",
+                "Animal",
+                "Plant",
+                "Vehicle",
+                "Landscape",
+              ].map((category, index) => (
+                <label
+                  key={index}
+                  className="flex items-center space-x-2 text-gray-300 bg-gray-700 py-3 px-3 rounded-lg hover:bg-gray-600 transition"
+                >
+                  <input
+                    type="checkbox"
+                    value={category}
+                    className="form-checkbox h-4 w-4 text-blue-600 focus:ring focus:ring-blue-500 rounded"
+                    style={{ margin: 0 }}
+                    onChange={(e) =>
+                      handleCategoryChange(category, e.target.checked)
+                    }
+                  />
+                  <span className="text-sm leading-none">{category}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
           <button
             onClick={uploadAndMint}
@@ -296,6 +354,7 @@ const Upload = () => {
           My NFTs
         </h2>
         <NFTGallery
+          key={nfts.length}
           provider={provider}
           contractAddress={contractAddress}
           ownerAddress={currentAddress}
@@ -310,6 +369,7 @@ const Upload = () => {
           }}
           nfts={nfts}
           refreshNFTs={refreshNFTs}
+          loading={loading}
         />
       </div>
 

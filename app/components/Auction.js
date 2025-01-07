@@ -9,10 +9,11 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
   const [auctions, setAuctions] = useState([]);
   const [filteredAuctions, setFilteredAuctions] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [priceSteps, setPriceSteps] = useState([]); // Array of unique prices
   const [localProvider, setLocalProvider] = useState(null);
   const [filters, setFilters] = useState({
     selectedCategories: [],
-    priceRange: [0, 100],
+    priceRange: [0, 0], // Min and max indices
     sortOrder: 'newest',
   });
 
@@ -42,12 +43,18 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
       );
     }
 
-    // Filter by price range
-    filtered = filtered.filter(
-      (auction) =>
-        ethers.utils.formatUnits(auction.highestBid, 'ether') >= filters.priceRange[0] &&
-        ethers.utils.formatUnits(auction.highestBid, 'ether') <= filters.priceRange[1]
-    );
+    // Filter by price range (use priceSteps)
+    if (priceSteps.length > 0) {
+      const [minIndex, maxIndex] = filters.priceRange;
+      const minPrice = priceSteps[minIndex];
+      const maxPrice = priceSteps[maxIndex];
+
+      filtered = filtered.filter(
+        (auction) =>
+          ethers.utils.formatUnits(auction.highestBid, 'ether') >= minPrice &&
+          ethers.utils.formatUnits(auction.highestBid, 'ether') <= maxPrice
+      );
+    }
 
     // Sort by selected order
     if (filters.sortOrder === 'low_to_high') {
@@ -61,7 +68,7 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
     }
 
     setFilteredAuctions(filtered);
-  }, [filters, auctions]);
+  }, [filters, auctions, priceSteps]);
 
   const loadAuctions = async () => {
     try {
@@ -99,11 +106,26 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
         }
       }
 
+      // Extract unique categories
       const uniqueCategories = Array.from(
         new Set(items.flatMap((auction) => auction.categories))
       );
+
+      // Extract unique prices and sort them
+      const uniquePrices = Array.from(
+        new Set(items.map((auction) => parseFloat(ethers.utils.formatUnits(auction.highestBid, 'ether'))))
+      ).sort((a, b) => a - b);
+
+      // Update state
+      setPriceSteps(uniquePrices);
       setCategories(uniqueCategories);
       setAuctions(items);
+
+      // Initialize filters with proper price range
+      setFilters((prev) => ({
+        ...prev,
+        priceRange: [0, uniquePrices.length - 1], // Set to min and max indices
+      }));
     } catch (error) {
       console.error('Error loading auctions:', error);
     }
@@ -113,8 +135,10 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
     <div className="w-full px-4 lg:px-16">
       <h1 className="text-5xl font-bold text-gray-100 text-center my-8">Live Auctions</h1>
 
+      {/* Pass categories and priceSteps to FilterPanel */}
       <FilterPanel
         categories={categories}
+        priceSteps={priceSteps} // Pass unique prices
         onFilterChange={(newFilters) => setFilters(newFilters)}
       />
 
@@ -127,6 +151,8 @@ const Auction = ({ provider, contractAddress, currentAddress }) => {
                 nft={nft}
                 currentAddress={currentAddress}
                 isAuction={true}
+                contractAddress={contractAddress}
+                provider={provider}
               />
             </div>
           ))

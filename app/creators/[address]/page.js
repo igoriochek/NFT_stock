@@ -70,11 +70,10 @@ const UserProfile = ({ params }) => {
     fetchUserData();
   }, [address, currentAddress]);
 
-  // Fetch listed and auctioned NFTs and user profile data from Firebase
   useEffect(() => {
     const fetchListedOrAuctionNFTs = async () => {
       if (!provider) return;
-
+  
       try {
         const contract = new ethers.Contract(
           process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
@@ -83,63 +82,80 @@ const UserProfile = ({ params }) => {
         );
         const totalSupply = await contract.tokenCount();
         const listedNFTs = [];
-
+  
         for (let i = 1; i <= totalSupply; i++) {
           try {
+            // Check the listing type
+            const isListedForSale = await contract.listedTokens(i);
+            const listingType = await contract.listingTypes(i); // Get the listing type
+  
+            if (!isListedForSale && listingType !== 2) continue; // Skip if not listed in market or auction
+  
             const owner = await contract.ownerOf(i);
+  
+            // Only process NFTs owned by the current address
             if (owner.toLowerCase() === address.toLowerCase()) {
               const tokenURI = await contract.tokenURI(i);
               const price = await contract.getPrice(i);
+  
               const response = await fetch(tokenURI);
               if (!response.ok) {
                 console.error(`Failed to fetch metadata for token ${i}`);
                 continue;
               }
+  
               const metadata = await response.json();
-
-              // Fetch the owner's profile from Firebase
+  
+              // Fetch user profile data from Firebase
               const ownerProfile = await getUserProfileByAddress(owner);
               const ownerUsername = ownerProfile?.username || "Anonymous";
               const ownerProfilePicture =
                 ownerProfile?.profilePicture || "/images/default-avatar.png";
-
-              // Check for auction details
-              let isAuction = false;
-              let highestBid = ethers.BigNumber.from(0); // Initialize as BigNumber with value 0
+  
+              // Fetch auction details if auction-listed
+              let isAuction = listingType === 2;
+              let highestBid = ethers.BigNumber.from(0);
               let endTime = null;
-              try {
-                const [active, highestBidder, highestBidValue, auctionEndTime] =
-                  await contract.getAuctionDetails(i);
-                isAuction = active;
-                highestBid = highestBidValue; // Ensure this is a BigNumber object
-                endTime = auctionEndTime;
-              } catch (error) {
-                console.log(`No active auction for NFT ID: ${i}`);
+  
+              if (isAuction) {
+                try {
+                  const [active, , highestBidValue, auctionEndTime] =
+                    await contract.getAuctionDetails(i);
+  
+                  isAuction = active;
+                  if (isAuction) {
+                    highestBid = ethers.BigNumber.from(highestBidValue);
+                    endTime = auctionEndTime;
+                  }
+                } catch (error) {
+                  console.log(`No active auction for NFT ID: ${i}`);
+                }
               }
-
-              // Push the NFT data to the listedNFTs array
+  
+              // Add NFT data to the list
               listedNFTs.push({
                 id: i,
                 metadata,
-                price: ethers.utils.formatUnits(price, "ether"), // Format price as a string
-                highestBid: isAuction ? highestBid : ethers.BigNumber.from(0), // Keep as BigNumber
+                price: ethers.utils.formatUnits(price, "ether"),
+                highestBid: isAuction ? highestBid : ethers.BigNumber.from(0),
                 auctionActive: isAuction,
                 endTime: isAuction ? endTime : null,
-                ownerUsername, // Firebase data
-                ownerProfilePicture, // Firebase data
+                ownerUsername,
+                ownerProfilePicture,
+                listingType, // Track the listing type (Market or Auction)
               });
             }
           } catch (error) {
             console.error(`Error fetching data for NFT ID ${i}:`, error);
           }
         }
-
+  
         setNfts(listedNFTs);
       } catch (error) {
         console.error("Error fetching NFTs:", error);
       }
     };
-
+  
     fetchListedOrAuctionNFTs();
   }, [address, provider]);
 
@@ -307,12 +323,11 @@ const UserProfile = ({ params }) => {
                       image: nft.metadata.image,
                       price: nft.price,
                       highestBid: nft.highestBid,
-                      listed: nft.listed,
                       auctionActive: nft.auctionActive,
                       endTime: nft.endTime,
-                      owner: address, // Pass owner wallet address
-                      ownerUsername: nft.ownerUsername, // Firebase data
-                      ownerProfilePicture: nft.ownerProfilePicture, // Firebase data
+                      owner: address,
+                      ownerUsername: nft.ownerUsername,
+                      ownerProfilePicture: nft.ownerProfilePicture,
                     }}
                     currentAddress={currentAddress}
                     isAuction={nft.auctionActive}

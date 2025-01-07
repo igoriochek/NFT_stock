@@ -7,8 +7,10 @@ import { ethers } from "ethers"; // Needed for ETH conversion
 import { getUserProfileByAddress } from "../utils/firebaseUtils"; // Utility function for fetching username
 import { createLikeNotification } from "@/app/utils/notifications"; // Import the notification function
 import VanillaTilt from "vanilla-tilt";
+import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
 
-const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
+
+const NFTCard = ({ nft, currentAddress, isAuction, onBid, contractAddress, provider }) => {
   const [timeLeft, setTimeLeft] = useState("");
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -17,6 +19,7 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
     "/images/default-avatar.png"
   ); // State for owner profile picture
   const tiltRef = useRef(null);
+  const [auctionEnded, setAuctionEnded] = useState(false); // Track if auction has ended
 
   // Fetch the likes count and user liked status when the page loads
   useEffect(() => {
@@ -79,7 +82,9 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
   useEffect(() => {
     if (isAuction && nft?.endTime) {
       const interval = setInterval(() => {
-        setTimeLeft(calculateTimeLeft(nft.endTime));
+        const remainingTime = calculateTimeLeft(nft.endTime);
+        setTimeLeft(remainingTime);
+        setAuctionEnded(remainingTime === "Auction Ended");
       }, 1000);
 
       return () => clearInterval(interval);
@@ -173,21 +178,51 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
     }
   };
 
+
+  const finalizeAuction = async () => {
+    if (!provider || !contractAddress || !nft?.id) {
+      console.error("Provider, contract address, or NFT ID is missing.");
+      return;
+    }
+  
+    try {
+      const signer = provider.getSigner();
+      const contract = new ethers.Contract(contractAddress, ArtNFT.abi, signer);
+  
+      console.log("Finalizing auction for token ID:", nft.id);
+  
+      const tx = await contract.finalizeAuction(nft.id);
+      console.log("Transaction sent:", tx.hash);
+  
+      await tx.wait();
+      console.log("Transaction confirmed:", tx);
+  
+      alert("Auction finalized successfully!");
+    } catch (error) {
+      console.error("Error finalizing auction:", error.message || error);
+      alert("Failed to finalize auction. Please check the console for details.");
+    }
+  };
+  
+
   useEffect(() => {
     if (tiltRef.current) {
       VanillaTilt.init(tiltRef.current, {
-        max: 25,          // Max tilt angle
-        speed: 400,       // Animation speed
-        glare: true,      // Enable glare effect
+        max: 25, // Max tilt angle
+        speed: 400, // Animation speed
+        glare: true, // Enable glare effect
         "max-glare": 0.3, // Max glare opacity
-        scale: 1.05,      // Slight zoom on hover
+        scale: 1.05, // Slight zoom on hover
       });
     }
   }, []);
 
   return (
     <div className="bg-white shadow-lg rounded-xl overflow-hidden p-4 w-full max-w-full mx-auto transition-transform transform hover:scale-105">
-      <div ref={tiltRef} className="img-tilt relative rounded-lg overflow-hidden">
+      <div
+        ref={tiltRef}
+        className="img-tilt relative rounded-lg overflow-hidden"
+      >
         <Link href={isAuction ? `/auction/${nft?.id}` : `/market/${nft?.id}`}>
           <img
             src={nft?.image || "https://via.placeholder.com/565x551"}
@@ -278,6 +313,18 @@ const NFTCard = ({ nft, currentAddress, isAuction, onBid }) => {
         )}
       </div>
 
+      {/* Auction Finalization Button */}
+      {auctionEnded &&
+        nft?.owner?.toLowerCase() === currentAddress?.toLowerCase() && (
+          <button
+            onClick={finalizeAuction}
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          >
+            Complete Auction
+          </button>
+        )}
+
+      {/* Owner Label */}
       <div className="mt-4">
         {nft?.owner &&
         nft.owner.toLowerCase() === currentAddress?.toLowerCase() ? (

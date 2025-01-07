@@ -1,16 +1,23 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 
-const FilterPanel = ({ categories, onFilterChange }) => {
-  const initialPriceRange = useMemo(() => [0, 100], []);
+const FilterPanel = ({ categories, priceSteps, onFilterChange }) => {
   const [selectedCategories, setSelectedCategories] = useState([]);
-  const [priceRange, setPriceRange] = useState(initialPriceRange);
+  const [priceRange, setPriceRange] = useState([0, priceSteps.length - 1]); // Use index range
   const [sortOrder, setSortOrder] = useState("newest");
   const [accordionCategoriesOpen, setAccordionCategoriesOpen] = useState(false);
   const [accordionPriceOpen, setAccordionPriceOpen] = useState(false);
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
 
-  // Handle category selection
+  // Update filters on change
+  useEffect(() => {
+    onFilterChange({
+      selectedCategories,
+      priceRange,
+      sortOrder,
+    });
+  }, [selectedCategories, priceRange, sortOrder]);
+
   const toggleCategory = (category) => {
     setSelectedCategories((prev) =>
       prev.includes(category)
@@ -19,10 +26,17 @@ const FilterPanel = ({ categories, onFilterChange }) => {
     );
   };
 
-  // Update filters on change without including onFilterChange in dependencies
-  useEffect(() => {
-    onFilterChange({ selectedCategories, priceRange, sortOrder });
-  }, [selectedCategories, priceRange, sortOrder]);
+  const handlePriceChange = (type, value) => {
+    const updatedRange = [...priceRange];
+    updatedRange[type === "min" ? 0 : 1] = parseInt(value, 10);
+
+    // Ensure minimum index is not greater than maximum index
+    if (updatedRange[0] > updatedRange[1]) {
+      updatedRange[type === "min" ? 1 : 0] = parseInt(value, 10);
+    }
+
+    setPriceRange(updatedRange);
+  };
 
   const commonAccordionStyle = `
     transition-all duration-500 ease-in-out overflow-hidden
@@ -85,19 +99,41 @@ const FilterPanel = ({ categories, onFilterChange }) => {
         </h3>
         <div
           className={`${commonAccordionStyle} ${
-            accordionPriceOpen ? "max-h-[100px] py-4" : "max-h-0"
+            accordionPriceOpen ? "max-h-[200px] py-4" : "max-h-0"
           }`}
         >
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value={priceRange[1]}
-            onChange={(e) => setPriceRange([0, parseInt(e.target.value, 10)])}
-            className="w-full cursor-pointer"
-          />
-          <p className="text-gray-300 text-sm mt-2">0 - {priceRange[1]} ETH</p>
+
+          {/* Min Price Slider */}
+          <div className="mb-4">
+            <label className="text-gray-300 text-sm block mb-2">
+              Min Price: {priceSteps[priceRange[0]]} ETH
+            </label>
+            <input
+              type="range"
+              min="0"
+              max={priceSteps.length - 1}
+              step="1"
+              value={priceRange[0]}
+              onChange={(e) => handlePriceChange("min", e.target.value)}
+              className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+
+          {/* Max Price Slider */}
+          <div>
+            <label className="text-gray-300 text-sm block mb-2">
+              Max Price: {priceSteps[priceRange[1]]} ETH
+            </label>
+            <input
+              type="range"
+              min="0"
+              max={priceSteps.length - 1}
+              step="1"
+              value={priceRange[1]}
+              onChange={(e) => handlePriceChange("max", e.target.value)}
+              className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
         </div>
       </div>
 

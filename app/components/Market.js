@@ -1,19 +1,20 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { ethers } from 'ethers';
-import NFTCard from './NFTCard';
-import ArtNFT from '@/artifacts/contracts/ArtNFT.sol/ArtNFT.json';
-import FilterPanel from './FilterPanel';
-import { getHardhatProvider } from '../utils/getHardhatProvider';
+"use client";
+import { useEffect, useState } from "react";
+import { ethers } from "ethers";
+import NFTCard from "./NFTCard";
+import ArtNFT from "@/artifacts/contracts/ArtNFT.sol/ArtNFT.json";
+import FilterPanel from "./FilterPanel";
+import { getHardhatProvider } from "../utils/getHardhatProvider";
 
 const Market = ({ provider, contractAddress, currentAddress }) => {
   const [listedNFTs, setListedNFTs] = useState([]);
   const [filteredNFTs, setFilteredNFTs] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [priceSteps, setPriceSteps] = useState([]); // Array of unique prices
   const [filters, setFilters] = useState({
     selectedCategories: [],
-    priceRange: [0, 100],
-    sortOrder: 'newest',
+    priceRange: [0, 0], // Min and max indexes
+    sortOrder: "newest",
   });
   const [activeProvider, setActiveProvider] = useState(null);
 
@@ -38,6 +39,7 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
     }
   }, [activeProvider]);
 
+  // Apply filters to the listed NFTs
   useEffect(() => {
     let filtered = listedNFTs;
 
@@ -50,27 +52,34 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
       );
     }
 
-    // Filter by price range
-    filtered = filtered.filter(
-      (nft) =>
-        parseFloat(nft.price) >= filters.priceRange[0] &&
-        parseFloat(nft.price) <= filters.priceRange[1]
-    );
+    // Filter by price range (use priceSteps)
+    if (priceSteps.length > 0) {
+      const [minIndex, maxIndex] = filters.priceRange;
+      const minPrice = priceSteps[minIndex];
+      const maxPrice = priceSteps[maxIndex];
+
+      filtered = filtered.filter(
+        (nft) =>
+          parseFloat(nft.price) >= minPrice &&
+          parseFloat(nft.price) <= maxPrice
+      );
+    }
 
     // Sort by selected order
-    if (filters.sortOrder === 'low_to_high') {
+    if (filters.sortOrder === "low_to_high") {
       filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-    } else if (filters.sortOrder === 'high_to_low') {
+    } else if (filters.sortOrder === "high_to_low") {
       filtered.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-    } else if (filters.sortOrder === 'newest') {
+    } else if (filters.sortOrder === "newest") {
       filtered.sort((a, b) => b.id - a.id);
-    } else if (filters.sortOrder === 'oldest') {
+    } else if (filters.sortOrder === "oldest") {
       filtered.sort((a, b) => a.id - b.id);
     }
 
     setFilteredNFTs(filtered);
-  }, [filters, listedNFTs]);
+  }, [filters, listedNFTs, priceSteps]);
 
+  // Load listed NFTs from the contract
   const loadListedNFTs = async () => {
     try {
       if (!activeProvider) return;
@@ -98,20 +107,30 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
 
         items.push({
           id: tokenId,
-          price: ethers.utils.formatUnits(price, 'ether'),
+          price: parseFloat(ethers.utils.formatUnits(price, "ether")), // Parse price
           owner,
           categories,
           ...metadata,
         });
       }
 
-      const uniqueCategories = Array.from(
-        new Set(items.flatMap((nft) => nft.categories))
+      // Extract unique prices and sort them
+      const uniquePrices = Array.from(new Set(items.map((nft) => nft.price))).sort(
+        (a, b) => a - b
       );
-      setCategories(uniqueCategories);
+
+      // Update state
+      setPriceSteps(uniquePrices);
+      setCategories([...new Set(items.flatMap((nft) => nft.categories))]);
       setListedNFTs(items);
+
+      // Initialize filters with proper price range
+      setFilters((prev) => ({
+        ...prev,
+        priceRange: [0, uniquePrices.length - 1], // Set to min and max indexes
+      }));
     } catch (error) {
-      console.error('Error loading listed NFTs:', error);
+      console.error("Error loading listed NFTs:", error);
     }
   };
 
@@ -121,8 +140,10 @@ const Market = ({ provider, contractAddress, currentAddress }) => {
         Market
       </h1>
 
+      {/* Pass categories and priceSteps to FilterPanel */}
       <FilterPanel
         categories={categories}
+        priceSteps={priceSteps} // Pass unique prices
         onFilterChange={(newFilters) => setFilters(newFilters)}
       />
 

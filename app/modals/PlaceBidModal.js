@@ -75,7 +75,7 @@ const PlaceBidModal = ({ nft, closeModal, provider, contractAddress, refreshAuct
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">Place Your Bid</h2>
           <button
-            className="text-gray-700 hover:text-gray-600 text-xl font-bold p-2 focus:outline-none"
+            className="text-gray-700 hover:text-gray-600 text-xl font-bold p-2 focus:outline-none w-10"
             onClick={closeModal}
             style={{ backgroundColor: 'transparent' }}
           >
